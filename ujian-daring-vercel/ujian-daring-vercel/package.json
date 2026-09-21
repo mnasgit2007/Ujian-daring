@@ -1,0 +1,17 @@
+{
+  "name": "ujian-daring-dkv-xi",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Ujian Daring DKV XI — porting dari Google Apps Script ke Vercel",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "googleapis": "^144.0.0"
+  },
+  "scripts": {
+    "dev": "vercel dev",
+    "hash-admin": "node scripts/hash-secret.mjs",
+    "setup-sheet": "node scripts/setup-sheet.mjs",
+    "generate-pins": "node scripts/generate-pins.mjs"
+  }
+}
