@@ -69,6 +69,7 @@ dan Drive (baca saja, untuk gambar soal).
 | `ADMIN_HASH` | hasil perintah di bawah |
 | `SESSION_TTL_SECONDS` | opsional, standar 21600 (6 jam), sama seperti `CFG.SESSION_SECONDS` asli |
 | `SHEET_CACHE_MS` | opsional, standar `0` (mati). Lihat *Optimasi kuota* di bawah |
+| `SHUFFLE_QUESTIONS` | opsional, standar `NO`; isi `YA` untuk mengacak urutan soal secara konsisten per sesi |
 
 Menghasilkan `ADMIN_HASH`:
 
@@ -77,6 +78,15 @@ node scripts/hash-secret.mjs "isi-HASH_SECRET-anda" "kata-sandi-admin-yang-diing
 ```
 
 Kata sandi admin sebaiknya **minimal 12 karakter**, sesuai anjuran panduan asli.
+
+### Pengacakan soal (opsional)
+
+Pengacakan urutan soal belum aktif secara default agar perilaku ujian yang sedang
+berjalan tidak berubah. Setelah guru menguji fitur pada salinan/ujian latihan, isi
+`SHUFFLE_QUESTIONS=YA` pada environment Vercel lalu lakukan redeploy. Urutan soal
+ditentukan dari `AttemptID`, sehingga tetap sama ketika siswa memuat ulang atau
+melanjutkan sesi yang sama. Penilaian tetap menggunakan `SoalID` dan kunci pada
+sheet `SOAL`, bukan posisi soal.
 
 ## Langkah 3 — Siapkan struktur Spreadsheet
 

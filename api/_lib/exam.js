@@ -5,6 +5,21 @@ import { norm, isYa, signAttemptTicket, readAttemptTicket } from './auth.js';
 export const MAX_SOAL = 80;
 export const MAX_JAWAB_BYTES = 30000;
 export const MAX_GAMBAR = 220000;
+export const RANDOMIZE_QUESTIONS = isYa(process.env.SHUFFLE_QUESTIONS);
+
+// Pengacakan ditentukan dari AttemptID, bukan Math.random(), sehingga urutan
+// tetap sama saat siswa memuat ulang atau melanjutkan sesi yang sama.
+export function shuffleQuestions(questions, attemptId) {
+  const out = [...questions];
+  let counter = 0;
+  for (let i = out.length - 1; i > 0; i--) {
+    const seed = crypto.createHash('sha256').update(`${attemptId}:${counter++}`).digest();
+    const random = seed.readUInt32BE(0) / 0x100000000;
+    const j = Math.floor(random * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
 
 export async function getStudents() {
   const rows = await readRows(SHEETS.SISWA);
@@ -210,13 +225,17 @@ export async function startUjian(studentId, examId) {
   if (current.status !== 'SEDANG') {
     return { done: true, score: exam.showScore ? current.score : null, maxScore: exam.showScore ? current.maxScore : null, status: current.status };
   }
+  const orderedQuestions = RANDOMIZE_QUESTIONS
+    ? shuffleQuestions(questions, current.attemptId)
+    : questions;
   return {
     done: false,
     exam: { id: exam.id, title: exam.title, deadline: fmtEpoch(current.deadline), serverNow: fmtEpoch(now), showScore: exam.showScore },
     attemptId: current.attemptId,
     ticket: signAttemptTicket(studentId, examId, current.row, current.deadline, current.attemptId),
     answers: current.answers, revision: current.revision,
-    questions: questions.map(q => ({
+    randomized: RANDOMIZE_QUESTIONS,
+    questions: orderedQuestions.map(q => ({
       id: q.id, text: q.text,
       options: [{ key: 'A', text: q.a }, { key: 'B', text: q.b }, { key: 'C', text: q.c }, { key: 'D', text: q.d }],
       hasImage: !!q.fileId
