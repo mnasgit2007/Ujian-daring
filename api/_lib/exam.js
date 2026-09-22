@@ -20,7 +20,7 @@ export async function getExams() {
     const e = {
       id: norm(r[0]), title: String(r[1] || ''), duration: Number(r[2]),
       start: cellToEpoch(r[3]), end: cellToEpoch(r[4]),
-      status: norm(r[5]).toUpperCase(), showScore: isYa(r[6])
+      status: norm(r[5]).toUpperCase(), showScore: isYa(r[6]), sessionPin: norm(r[7])
     };
     if (!e.title || !(e.duration >= 1 && e.duration <= 180) || e.end <= e.start) {
       throw new Error('Periksa konfigurasi ujian ' + e.id);
@@ -134,6 +134,7 @@ export async function dashboardSiswa(id) {
     if (a) state = a.status === 'SEDANG' ? (now > a.deadline ? 'WAKTU_HABIS' : 'LANJUTKAN') : a.status;
     return {
       id: e.id, title: e.title, duration: e.duration, start: fmtEpoch(e.start), end: fmtEpoch(e.end), state,
+      sessionPinRequired: Boolean(e.sessionPin),
       score: a && a.status !== 'SEDANG' && e.showScore ? a.score : null,
       maxScore: a && a.status !== 'SEDANG' && e.showScore ? a.maxScore : null
     };
@@ -145,7 +146,7 @@ export async function adminDashboard() {
   await preload([SHEETS.UJIAN, SHEETS.SISWA, SHEETS.SESI]);
   const [exams, students, attempts] = await Promise.all([getExams(), getStudents(), getAttempts()]);
   return {
-    exams: exams.map(e => ({ id: e.id, title: e.title, status: e.status, duration: e.duration, start: fmtEpoch(e.start), end: fmtEpoch(e.end), showScore: e.showScore })),
+    exams: exams.map(e => ({ id: e.id, title: e.title, status: e.status, duration: e.duration, start: fmtEpoch(e.start), end: fmtEpoch(e.end), showScore: e.showScore, sessionPin: e.sessionPin })),
     students: students.map(s => ({ id: s.id, name: s.name, kelas: s.kelas, kelompok: s.kelompok, active: s.active })),
     attempts: attempts.map(a => ({
       examId: a.examId, studentId: a.studentId, attemptId: a.attemptId, status: a.status,
@@ -161,7 +162,17 @@ export async function adminSetStatus(examId, status) {
   const rows = await readRows(SHEETS.UJIAN);
   const i = rows.findIndex((r, n) => n > 0 && String(r[0]) === String(examId));
   if (i < 0) throw new Error('Ujian tidak ditemukan.');
-  await writeCells(SHEETS.UJIAN, `F${i + 1}`, [[status]]);
+  const sessionPin = status === 'BUKA' ? createSessionPin() : '';
+  await writeCells(SHEETS.UJIAN, `F${i + 1}:H${i + 1}`, [[status, rows[i][6] || '', sessionPin]]);
+  return adminDashboard();
+}
+
+export async function adminRotateSessionPin(examId) {
+  const rows = await readRows(SHEETS.UJIAN, { fresh: true });
+  const i = rows.findIndex((r, n) => n > 0 && String(r[0]) === String(examId));
+  if (i < 0) throw new Error('Ujian tidak ditemukan.');
+  if (norm(rows[i][5]).toUpperCase() !== 'BUKA') throw new Error('PIN hanya dapat diacak untuk ujian yang sedang BUKA.');
+  await writeCells(SHEETS.UJIAN, `H${i + 1}`, [[createSessionPin()]]);
   return adminDashboard();
 }
 
@@ -176,12 +187,13 @@ export async function adminResetAttempt(examId, studentId) {
   return adminDashboard();
 }
 
-export async function startUjian(studentId, examId) {
+export async function startUjian(studentId, examId, sessionPin = '') {
   // Satu batchGet untuk ketiga sheet yang dibutuhkan alur ini.
   await preload([SHEETS.UJIAN, SHEETS.SOAL, SHEETS.SESI]);
 
   const exam = await examById(examId);
   if (!exam) throw new Error('Ujian tidak ditemukan.');
+  if (exam.sessionPin && norm(sessionPin) !== exam.sessionPin) throw new Error('PIN sesi ujian salah atau belum diisi.');
   const questions = await getQuestions(examId);
   if (!questions.length || questions.length > MAX_SOAL) throw new Error('Bank soal kosong atau melebihi batas 80 soal.');
 
@@ -281,4 +293,8 @@ export async function attemptForImage(studentId, examId) {
 
 function cryptoRandomId() {
   return crypto.randomUUID();
+}
+
+export function createSessionPin() {
+  return String(crypto.randomInt(100000, 1000000));
 }

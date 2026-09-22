@@ -89,6 +89,16 @@ node --env-file=.env scripts/setup-sheet.mjs
 
 Ini membuat 5 tab dengan header yang benar: `SISWA`, `UJIAN`, `SOAL`, `SESI`, `LOGIN_LIMIT`.
 
+### PIN sesi ujian
+
+Kolom H pada tab `UJIAN` digunakan secara opsional untuk menyimpan PIN sesi. Kolom ini
+tidak perlu ditambahkan ke baris header lama. Saat admin membuka ujian, aplikasi membuat
+PIN acak 6 digit baru. PIN ditampilkan pada panel admin dan harus dimasukkan siswa saat
+memulai ujian. Saat ujian ditutup, PIN dihapus; tombol **Acak PIN** pada panel admin juga
+dapat digunakan untuk mengganti PIN saat ujian masih terbuka.
+
+Ujian lama yang kolom H-nya kosong tetap berjalan seperti sebelumnya tanpa PIN sesi.
+
 Tambahkan `--demo` untuk sekalian membuat contoh ujian (status `TUTUP`, 5 soal DKV) seperti
 `buatContohUjian_()` di versi lama:
 
