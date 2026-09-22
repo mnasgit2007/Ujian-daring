@@ -27,7 +27,7 @@
     button{cursor:pointer;border:1px solid transparent;border-radius:10px;padding:11px 18px;min-height:44px;font-size:14px;font-weight:650;background:var(--blue);color:#fff;transition:background .15s,box-shadow .15s,transform .15s}button:hover:not(:disabled){background:#174bbd;box-shadow:0 4px 12px #245be019}button:active:not(:disabled){transform:translateY(1px)}button:disabled{cursor:not-allowed;opacity:.48}
     button.secondary{background:#eaf0fd;color:#204dae}button.secondary:hover:not(:disabled){background:#dce7fd}button.ghost{background:transparent;color:inherit;border:1px solid #617694;padding:8px 15px}button.ghost:hover:not(:disabled){background:#ffffff12}button.danger{background:#fff4f2;color:var(--red);border-color:#f4cdc7}button.danger:hover:not(:disabled){background:#ffe6e1}
     button.tab{flex:1;background:transparent;color:#596c87;padding:10px;min-width:0}button.tab:hover:not(:disabled){background:#e3eaf5;box-shadow:none}.tab.active,.tab.active:hover:not(:disabled){background:#fff;color:var(--navy);box-shadow:0 2px 6px #172b4d12;border-color:#e2e8f1}.full{width:100%}#loginBtn{margin-top:3px;min-height:49px}
-    .login-help{display:flex;align-items:flex-start;gap:9px;border-top:1px solid var(--line);padding-top:19px;margin-top:23px!important;font-size:12px!important}.login-help svg{width:17px;height:17px;flex-shrink:0;margin-top:3px}
+    .login-help{display:flex;align-items:flex-start;gap:9px;border-top:1px solid var(--line);padding-top:19px;margin-top:23px!important;font-size:12px!important}.login-help svg{width:17px;height:17px;flex-shrink:0;margin-top:3px}.connection-status{display:inline-flex;align-items:center;gap:6px;color:#c7d7ef;font-size:12px;white-space:nowrap}.connection-status:before{content:"";width:7px;height:7px;border-radius:50%;background:#73d6a9}.connection-status.offline{color:#ffd2c9}.connection-status.offline:before{background:#ff8e7d}.connection-status.syncing:before{background:#f4c96b}
     .muted{font-size:13px;color:var(--muted)}.badge{display:inline-block;font-size:11px;line-height:1.5;font-weight:750;padding:5px 10px;border-radius:40px;background:#edf2fa;color:#365075;letter-spacing:.035em}.badge.good{background:#e1f5ec;color:#096a4c}.badge.warn{background:#fff1d3;color:#875300}.badge.bad{background:#fee9e5;color:#ab2d21}
     .welcome{padding:8px 0 27px;border-bottom:1px solid var(--line);margin-bottom:28px}.welcome h1{font-size:30px}.welcome p{font-size:14px;margin-bottom:0}.section-heading{margin-bottom:18px}.section-heading h2{margin:0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:20px}.grid .card{margin:0;min-width:0}
     #examList>.card{position:relative;padding:27px;display:flex;flex-direction:column;align-items:flex-start;border-top:3px solid #b9cef9}#examList h3{font-size:23px;margin:17px 0 5px}#examList p{font-size:14px;line-height:1.9;white-space:pre-line}#examList p:nth-of-type(2){width:100%;padding:16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:14px 0 22px}#examList button{margin-top:auto;min-width:155px}#examList>p{background:#fff;border:1px dashed #c7d3e3;padding:38px 24px;border-radius:16px;text-align:center}
@@ -46,7 +46,7 @@
   </style>
 </head>
 <body>
-<header class="site-header"><div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v15M3 4c3-1 6-1 9 1 3-2 6-2 9-1v15c-3-1-6-1-9 1-3-2-6-2-9-1z"/></svg></span><div><strong>UJIAN DARING</strong><small>SMKN 1 Manggelewa</small></div></div><button id="logout" class="ghost hidden" type="button">Keluar</button></header>
+<header class="site-header"><div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v15M3 4c3-1 6-1 9 1 3-2 6-2 9-1v15c-3-1-6-1-9 1-3-2-6-2-9-1z"/></svg></span><div><strong>UJIAN DARING</strong><small>SMKN 1 Manggelewa</small></div></div><div class="flex"><span id="connectionStatus" class="connection-status" role="status" aria-live="polite">Terhubung</span><button id="logout" class="ghost hidden" type="button">Keluar</button></div></header>
 <main>
   <div id="alert" role="alert"></div>
   <section id="loginView" class="login">
@@ -80,7 +80,7 @@
 <script>
 'use strict';
 const el=id=>document.getElementById(id);
-const S={token:'',role:'S',exam:null,questions:[],answers:{},revision:0,lastSaved:0,dirty:false,attemptId:'',ticket:'',index:0,deadlineAt:0,lastSaveAt:0,imageCache:{},saving:null,submitting:false,saveTimer:null,timer:null};
+const S={token:'',role:'S',exam:null,questions:[],answers:{},revision:0,lastSaved:0,dirty:false,attemptId:'',ticket:'',index:0,deadlineAt:0,lastSaveAt:0,imageCache:{},saving:null,submitting:false,saveTimer:null,timer:null,connection:navigator.onLine};
 /* Irama sinkronisasi ke server. Setiap penyimpanan memakai kuota tulis Google
    Sheets (60/menit untuk SELURUH kelas), jadi jawaban disimpan ke perangkat
    seketika dan dikirim ke server secara berkala saja.
@@ -107,8 +107,8 @@ async function call(name,...args){
   if(!build)throw new Error('Fungsi tidak dikenal: '+name);
   const[path,payload]=build(...args);
   let res;
-  try{res=await fetch('/api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});}
-  catch(e){throw new Error('Tidak dapat terhubung ke server. Periksa koneksi internet.');}
+  try{res=await fetch('/api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});setConnectionStatus(true);}
+  catch(e){setConnectionStatus(false);throw new Error('Tidak dapat terhubung ke server. Periksa koneksi internet.');}
   let data={};
   try{data=await res.json();}catch(e){throw new Error('Respons server tidak valid ('+res.status+').');}
   if(!res.ok)throw new Error(data.error||('Terjadi kesalahan ('+res.status+').'));
@@ -116,12 +116,13 @@ async function call(name,...args){
 }
 function error(e){const msg=typeof e==='string'?e:(e&&e.message)||'Koneksi bermasalah. Coba lagi.';el('alert').textContent=msg;el('alert').style.display='block';}
 function clearError(){el('alert').style.display='none';el('alert').textContent='';}
+function setConnectionStatus(online){S.connection=online;const out=el('connectionStatus');if(!out)return;out.textContent=online?'Terhubung':'Offline — jawaban disimpan di perangkat';out.classList.toggle('offline',!online);out.classList.toggle('syncing',online&&!!S.dirty);}
 function view(id){['loginView','studentView','examView','resultView','adminView'].forEach(x=>el(x).classList.toggle('hidden',x!==id));el('logout').classList.toggle('hidden',id==='loginView');clearError();}
 function busy(id,value){el(id).disabled=value;}
 function localKey(){return 'UJIAN_V1:'+S.attemptId;}
-function saveLocal(){try{localStorage.setItem(localKey(),JSON.stringify({revision:S.revision,answers:S.answers}));}catch(e){el('status').textContent='Penyimpanan lokal tidak tersedia. Pastikan jawaban tersimpan ke server.';}}
+function saveLocal(){try{localStorage.setItem(localKey(),JSON.stringify({revision:S.revision,answers:S.answers,savedAt:Date.now()}));}catch(e){el('status').textContent='Penyimpanan lokal tidak tersedia. Pastikan jawaban tersimpan ke server.';}}
 function removeLocal(){try{localStorage.removeItem(localKey());}catch(e){}}
-function setStatus(msg){el('status').textContent=msg;}
+function setStatus(msg){el('status').textContent=msg;setConnectionStatus(S.connection);}
 function parseLocal(s){return new Date(String(s).replace(' ','T')).getTime();}
 function scoreText(a,b){return a===null || a===undefined?'Nilai belum ditampilkan':`${a} / ${b}`;}
 function badge(status){const span=document.createElement('span');span.className='badge '+(['SELESAI','TERSEDIA'].includes(status)?'good':['WAKTU_HABIS','BERAKHIR','DITUTUP'].includes(status)?'bad':'warn');span.textContent=status.replaceAll('_',' ');return span;}
@@ -129,6 +130,8 @@ function node(tag,txt){const n=document.createElement(tag);if(txt!==undefined)n.
 function btn(label,fn,cls='secondary smallbtn'){const b=node('button',label);b.type='button';b.className=cls;b.addEventListener('click',fn);return b;}
 function setRole(role){S.role=role;el('studentTab').classList.toggle('active',role==='S');el('adminTab').classList.toggle('active',role==='A');el('studentFields').classList.toggle('hidden',role==='A');el('userId').required=role==='S';el('password').value='';}
 el('studentTab').onclick=()=>setRole('S');el('adminTab').onclick=()=>setRole('A');
+window.addEventListener('online',()=>{setConnectionStatus(true);if(S.exam&&S.dirty)setStatus('Koneksi kembali • jawaban akan disinkronkan otomatis.');});
+window.addEventListener('offline',()=>{setConnectionStatus(false);if(S.exam)setStatus('Offline • jawaban tetap disimpan di perangkat.');});
 el('loginForm').addEventListener('submit',async ev=>{ev.preventDefault();clearError();busy('loginBtn',true);try{const result=S.role==='S'?await call('loginSiswa',el('userId').value,el('password').value):await call('loginAdmin',el('password').value);S.token=result.token;sessionStorage.setItem('UJIAN_TOKEN',S.token);sessionStorage.setItem('UJIAN_ROLE',S.role);el('password').value='';S.role==='S'?renderStudent(result):renderAdmin(result);}catch(e){error(e);}finally{busy('loginBtn',false);}});
 async function logout(){if(S.exam && S.dirty && !S.submitting){try{await saveNow();}catch(e){error(e);return;}}if(S.timer)clearInterval(S.timer);if(S.saveTimer)clearTimeout(S.saveTimer);if(S.token)call('logout',S.token).catch(()=>{});S.token='';S.exam=null;sessionStorage.removeItem('UJIAN_TOKEN');sessionStorage.removeItem('UJIAN_ROLE');view('loginView');}
 el('logout').onclick=logout;
@@ -146,7 +149,7 @@ el('nextBtn').onclick=()=>{if(S.index<S.questions.length-1){S.index++;renderQues
 function scheduleSave(){if(!S.exam||S.submitting)return;if(S.saveTimer)clearTimeout(S.saveTimer);
   const wait=Math.max(SAVE_DEBOUNCE_MS,SAVE_MIN_GAP_MS-(Date.now()-S.lastSaveAt));
   S.saveTimer=setTimeout(()=>saveNow().catch(()=>{}),wait);}
-async function saveNow(){if(!S.exam||S.submitting||!S.dirty)return;if(S.saving)return S.saving.then(()=>saveNow());const examId=S.exam.id,rev=S.revision,copy={...S.answers};S.lastSaveAt=Date.now();setStatus('Menyinkronkan ke server…');S.saving=call('saveJawaban',S.token,examId,copy,rev,S.ticket);try{const r=await S.saving;if(r.done){showResult({status:r.status,score:null,maxScore:null});return;}S.lastSaved=Math.max(S.lastSaved,r.revision);S.dirty=S.revision>S.lastSaved;setStatus(S.dirty?'Ada perubahan baru; menunggu sinkronisasi berkala.':'Tersimpan di server • '+r.savedAt);}catch(e){S.dirty=true;setStatus('Belum tersinkron ke server (jawaban aman di perangkat). Sistem akan mencoba lagi otomatis.');scheduleSave();throw e;}finally{S.saving=null;}}
+async function saveNow(){if(!S.exam||S.submitting||!S.dirty)return;if(S.saving)return S.saving.then(()=>saveNow());const examId=S.exam.id,rev=S.revision,copy={...S.answers};S.lastSaveAt=Date.now();setStatus('Menyinkronkan ke server…');S.saving=call('saveJawaban',S.token,examId,copy,rev,S.ticket);try{const r=await S.saving;if(r.done){showResult({status:r.status,score:null,maxScore:null});return;}S.lastSaved=Math.max(S.lastSaved,r.revision);S.dirty=S.revision>S.lastSaved;setConnectionStatus(S.connection);setStatus(S.dirty?'Ada perubahan baru; menunggu sinkronisasi berkala.':'Tersimpan di server • '+r.savedAt);}catch(e){S.dirty=true;setConnectionStatus(S.connection);setStatus('Belum tersinkron ke server (jawaban aman di perangkat). Sistem akan mencoba lagi otomatis.');scheduleSave();throw e;}finally{S.saving=null;}}
 function tick(){if(!S.exam)return;const left=Math.max(0,Math.ceil((S.deadlineAt-Date.now())/1000));const mm=Math.floor(left/60),ss=left%60;el('timer').textContent=String(mm).padStart(2,'0')+':'+String(ss).padStart(2,'0');el('timer').classList.toggle('urgent',left<=60);if(left===10 && S.dirty)saveNow().catch(error);if(left===0&&!S.submitting)submit(true);}
 el('submitBtn').onclick=()=>submit(false);
 async function submit(auto){if(!S.exam||S.submitting)return;const empty=S.questions.filter(q=>!S.answers[q.id]).length;if(!auto&&!confirm('Kumpulkan ujian sekarang? '+empty+' soal belum dijawab. Setelah dikumpulkan, jawaban tidak dapat diubah.'))return;S.submitting=true;busy('submitBtn',true);if(S.saveTimer)clearTimeout(S.saveTimer);setStatus('Mengirim jawaban akhir…');try{const r=await call('submitUjian',S.token,S.exam.id,{...S.answers},S.revision);showResult(r);}catch(e){S.submitting=false;busy('submitBtn',false);setStatus('Belum ada konfirmasi pengumpulan. Coba lagi.');error(e);}}
