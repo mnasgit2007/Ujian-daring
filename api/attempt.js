@@ -7,7 +7,7 @@ export default handler(async (body) => {
   const examId = norm(body.examId);
   if (!examId) throw new Error('ID ujian kosong.');
 
-  if (action === 'start') return await startUjian(studentId, examId);
+  if (action === 'start') return await startUjian(studentId, examId, norm(body.sessionPin));
   // body.ticket memungkinkan autosave menulis langsung ke baris SESI-nya
   // tanpa membaca sheet lebih dulu (lihat catatan di _lib/auth.js).
   if (action === 'save') return await saveJawaban(studentId, examId, body.answers, Number(body.revision), norm(body.ticket));

@@ -28,6 +28,9 @@ function colLetter(n) {
 const RANGE = Object.freeze(Object.fromEntries(
   Object.keys(HEADERS).map(name => [name, `'${name}'!A:${colLetter(HEADERS[name].length)}`])
 ));
+// Kolom H pada UJIAN menyimpan PIN sesi secara opsional. Header lama A:G tetap
+// kompatibel sehingga spreadsheet yang sudah ada tidak perlu diubah formatnya.
+const READ_RANGE = Object.freeze({ ...RANGE, [SHEETS.UJIAN]: `'${SHEETS.UJIAN}'!A:H` });
 
 let sheetsClient = null;
 let driveClient = null;
@@ -159,7 +162,7 @@ export async function preload(sheetNames) {
   if (!need.length) return;
   const res = await apiCall(() => sheetsApi().spreadsheets.values.batchGet({
     spreadsheetId: spreadsheetId(),
-    ranges: need.map(s => RANGE[s]),
+    ranges: need.map(s => READ_RANGE[s]),
     majorDimension: 'ROWS',
     valueRenderOption: 'UNFORMATTED_VALUE'
   }));
@@ -176,7 +179,7 @@ export async function readRows(sheet, opts) {
   }
   const res = await apiCall(() => sheetsApi().spreadsheets.values.get({
     spreadsheetId: spreadsheetId(),
-    range: RANGE[sheet] || `'${sheet}'`,
+    range: READ_RANGE[sheet] || `'${sheet}'`,
     valueRenderOption: 'UNFORMATTED_VALUE'
   }));
   const rows = res.data.values || [];
