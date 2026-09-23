@@ -12,13 +12,13 @@ export const SHEETS = Object.freeze({
 });
 
 export const HEADERS = Object.freeze({
-  SISWA: ['ID', 'Nama', 'Kelas', 'Kelompok', 'PinHash', 'Aktif'],
+  SISWA: ['ID', 'Nama', 'Kelas', 'Kelompok', 'PinHash', 'Aktif', 'KelasID'],
   UJIAN: ['UjianID', 'Judul', 'DurasiMenit', 'Mulai', 'Selesai', 'Status', 'TampilkanNilai'],
   SOAL: ['UjianID', 'SoalID', 'Pertanyaan', 'A', 'B', 'C', 'D', 'Kunci', 'Bobot', 'DriveFileId'],
   SESI: ['AttemptID', 'UjianID', 'SiswaID', 'MulaiMs', 'DeadlineMs', 'Status', 'JawabanJSON', 'Revisi', 'TerakhirSimpanMs', 'DiserahkanMs', 'Nilai', 'NilaiMaks'],
   LOGIN_LIMIT: ['Key', 'Count', 'LastFailMs'],
   KELAS: ['KelasID', 'NamaKelas', 'Tingkat', 'ProgramKeahlian', 'TahunAjaran', 'Semester', 'KelompokBelajar', 'WaliKelas', 'GuruPengampu', 'Aktif'],
-  RIWAYAT_KELAS: ['RiwayatID', 'SiswaID', 'NamaSiswa', 'DariKelas', 'KeKelasID', 'KeKelas', 'Kelompok', 'Jenis', 'WaktuMs']
+  RIWAYAT_KELAS: ['RiwayatID', 'SiswaID', 'NamaSiswa', 'DariKelasID', 'DariKelas', 'KeKelasID', 'KeKelas', 'Kelompok', 'Jenis', 'WaktuMs']
 });
 
 function colLetter(n) {
