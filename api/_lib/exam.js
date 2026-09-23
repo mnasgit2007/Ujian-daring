@@ -238,7 +238,7 @@ export async function dashboardSiswa(id) {
 
 
 export async function getClasses() {
-  const [rows, students] = await Promise.all([readRows(SHEETS.KELAS), getStudents()]);
+  const [students, rows] = await Promise.all([getStudents(), readRows(SHEETS.KELAS).catch(e => { if ([400, 404].includes(Number(e?.code || e?.status || e?.response?.status))) return []; throw e; })]);
   const classes = new Map();
   rows.slice(1).filter(r => norm(r[0]) && norm(r[1])).forEach(r => {
     const name = String(r[1]).trim();
@@ -285,7 +285,7 @@ export async function adminCreateClass(input = {}) {
 }
 
 export async function adminDashboard() {
-  await preload([SHEETS.UJIAN, SHEETS.SISWA, SHEETS.SESI, SHEETS.KELAS]);
+  await preload([SHEETS.UJIAN, SHEETS.SISWA, SHEETS.SESI]);
   const [exams, students, attempts, classes] = await Promise.all([getExams(), getStudents(), getAttempts(), getClasses()]);
   return {
     exams: exams.map(e => ({ id: e.id, title: e.title, status: e.status, duration: e.duration, start: fmtEpoch(e.start), end: fmtEpoch(e.end), showScore: e.showScore, sessionPin: e.sessionPin })),
