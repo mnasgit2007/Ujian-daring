@@ -40,6 +40,31 @@ test('frontend copies remain identical', async () => {
   assert.equal(rootIndex, publicIndex);
 });
 
+test('frontend element references remain complete and unique', async () => {
+  const html = await fs.readFile(path.join(root, 'index.html'), 'utf8');
+  const ids = [...html.matchAll(/\bid=["']([^"']+)["']/g)].map(match => match[1]);
+  const referenced = [...html.matchAll(/\bel\(["']([^"']+)["']\)/g)].map(match => match[1]);
+  const duplicateIds = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
+  const missingIds = [...new Set(referenced.filter(id => !ids.includes(id)))];
+
+  assert.deepEqual(duplicateIds, [], 'duplicate frontend IDs');
+  assert.deepEqual(missingIds, [], 'element references without matching IDs');
+});
+
+test('admin UI keeps class, student, and QR endpoint bindings', async () => {
+  const html = await fs.readFile(path.join(root, 'index.html'), 'utf8');
+  for (const endpoint of [
+    'adminCreateClass',
+    'adminAssignStudentClass',
+    'adminCreateStudent',
+    'adminStudentQrs',
+    'adminListQuestions',
+    'adminResetAttempt'
+  ]) {
+    assert.match(html, new RegExp(`\\b${endpoint}:`), endpoint);
+  }
+});
+
 test('student and admin hashes are deterministic and distinct', () => {
   assert.equal(hashSiswa('XI-DKV-001', '12345678'), hashSiswa('XI-DKV-001', '12345678'));
   assert.notEqual(hashSiswa('XI-DKV-001', '12345678'), hashSiswa('XI-DKV-002', '12345678'));
