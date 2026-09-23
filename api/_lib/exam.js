@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { SHEETS, readRows, appendRows, writeCells, preload, cellToEpoch, fmtEpoch, nowMs } from './store.js';
+import { SHEETS, readRows, appendRows, writeCells, clearCells, preload, cellToEpoch, fmtEpoch, nowMs } from './store.js';
 import { norm, isYa, signAttemptTicket, readAttemptTicket } from './auth.js';
 
 export const MAX_SOAL = 80;
@@ -65,6 +65,85 @@ export async function getQuestions(examId) {
     seen[q.id] = true;
     return q;
   });
+}
+
+function questionText(value, field, max = 2000) {
+  const text = String(value ?? '').trim();
+  if (!text) throw new Error(`${field} wajib diisi.`);
+  if (text.length > max) throw new Error(`${field} terlalu panjang.`);
+  return text;
+}
+
+export function normalizeQuestionInput(input = {}) {
+  const id = norm(input.questionId);
+  if (!/^[A-Za-z0-9_-]{1,30}$/.test(id)) throw new Error('ID soal hanya boleh berisi huruf, angka, garis bawah, atau tanda hubung (maksimal 30 karakter).');
+  const key = norm(input.key).toUpperCase();
+  if (!['A', 'B', 'C', 'D'].includes(key)) throw new Error('Kunci jawaban harus A, B, C, atau D.');
+  const weight = Number(input.weight);
+  if (!Number.isFinite(weight) || weight <= 0 || weight > 1000) throw new Error('Bobot harus lebih besar dari 0 dan maksimal 1000.');
+  const fileId = norm(input.fileId);
+  if (fileId.length > 200) throw new Error('ID gambar terlalu panjang.');
+  return {
+    examId: norm(input.examId), id,
+    text: questionText(input.text, 'Pertanyaan'),
+    a: questionText(input.a, 'Pilihan A', 1000), b: questionText(input.b, 'Pilihan B', 1000),
+    c: questionText(input.c, 'Pilihan C', 1000), d: questionText(input.d, 'Pilihan D', 1000),
+    key, weight, fileId
+  };
+}
+
+export async function adminListQuestions(examId) {
+  const exam = await examById(examId);
+  if (!exam) throw new Error('Ujian tidak ditemukan.');
+  const questions = await getQuestions(exam.id);
+  return { examId: exam.id, questions: questions.map(q => ({ id: q.id, text: q.text, a: q.a, b: q.b, c: q.c, d: q.d, key: q.key, weight: q.weight, fileId: q.fileId })) };
+}
+
+function questionRow(q) {
+  return [q.examId, q.id, q.text, q.a, q.b, q.c, q.d, q.key, q.weight, q.fileId];
+}
+
+function assertQuestionEditingAllowed(exam) {
+  if (exam.status === 'BUKA') throw new Error('Bank soal tidak dapat diubah saat ujian sedang BUKA. Tutup ujian terlebih dahulu.');
+}
+
+export async function adminCreateQuestion(input) {
+  const q = normalizeQuestionInput(input);
+  const exam = await examById(q.examId);
+  if (!exam) throw new Error('Ujian tidak ditemukan.');
+  assertQuestionEditingAllowed(exam);
+  const rows = await readRows(SHEETS.SOAL, { fresh: true });
+  const existing = rows.slice(1).filter(r => String(r[0]) === q.examId);
+  if (existing.length >= MAX_SOAL) throw new Error(`Jumlah soal melebihi batas ${MAX_SOAL}.`);
+  if (existing.some(r => String(r[1]).trim() === q.id)) throw new Error(`SoalID sudah ada untuk ${q.examId}: ${q.id}.`);
+  await appendRows(SHEETS.SOAL, [questionRow(q)]);
+  return adminListQuestions(q.examId);
+}
+
+export async function adminUpdateQuestion(input) {
+  const q = normalizeQuestionInput(input);
+  const originalId = norm(input.originalQuestionId || q.id);
+  const exam = await examById(q.examId);
+  if (!exam) throw new Error('Ujian tidak ditemukan.');
+  assertQuestionEditingAllowed(exam);
+  const rows = await readRows(SHEETS.SOAL, { fresh: true });
+  const index = rows.findIndex((r, n) => n > 0 && String(r[0]) === q.examId && String(r[1]).trim() === originalId);
+  if (index < 0) throw new Error('Soal yang akan diubah tidak ditemukan.');
+  if (q.id !== originalId && rows.some((r, n) => n > 0 && String(r[0]) === q.examId && String(r[1]).trim() === q.id)) throw new Error(`SoalID sudah ada untuk ${q.examId}: ${q.id}.`);
+  await writeCells(SHEETS.SOAL, `A${index + 1}:J${index + 1}`, [questionRow(q)]);
+  return adminListQuestions(q.examId);
+}
+
+export async function adminDeleteQuestion(examId, questionId) {
+  const id = norm(questionId);
+  const exam = await examById(examId);
+  if (!exam) throw new Error('Ujian tidak ditemukan.');
+  assertQuestionEditingAllowed(exam);
+  const rows = await readRows(SHEETS.SOAL, { fresh: true });
+  const index = rows.findIndex((r, n) => n > 0 && String(r[0]) === exam.id && String(r[1]).trim() === id);
+  if (index < 0) throw new Error('Soal yang akan dihapus tidak ditemukan.');
+  await clearCells(SHEETS.SOAL, `A${index + 1}:J${index + 1}`);
+  return adminListQuestions(exam.id);
 }
 
 function attemptFromRow(r, row) {
