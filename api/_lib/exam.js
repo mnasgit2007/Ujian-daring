@@ -236,12 +236,61 @@ export async function dashboardSiswa(id) {
   return { student: { id: s.id, name: s.name, kelas: s.kelas, kelompok: s.kelompok }, exams: list };
 }
 
+
+export async function getClasses() {
+  const [rows, students] = await Promise.all([readRows(SHEETS.KELAS), getStudents()]);
+  const classes = new Map();
+  rows.slice(1).filter(r => norm(r[0]) && norm(r[1])).forEach(r => {
+    const name = String(r[1]).trim();
+    classes.set(name.toLowerCase(), {
+      id: norm(r[0]), name, grade: norm(r[2]), program: norm(r[3]),
+      year: norm(r[4]), semester: norm(r[5]), group: norm(r[6]),
+      homeroom: norm(r[7]), teachers: norm(r[8]), active: norm(r[9]).toUpperCase() !== 'TIDAK',
+      studentCount: 0, source: 'catalog'
+    });
+  });
+  // Kelas lama yang sudah tertulis di sheet SISWA tetap muncul tanpa migrasi.
+  students.forEach(s => {
+    const key = s.kelas.trim().toLowerCase();
+    if (!key) return;
+    if (!classes.has(key)) classes.set(key, {
+      id: '', name: s.kelas.trim(), grade: '', program: '', year: '', semester: '',
+      group: '', homeroom: '', teachers: '', active: true, studentCount: 0, source: 'legacy'
+    });
+    if (s.active) classes.get(key).studentCount++;
+  });
+  return [...classes.values()].sort((a, b) => a.name.localeCompare(b.name, 'id'));
+}
+
+export async function adminCreateClass(input = {}) {
+  const name = norm(input.name), grade = norm(input.grade).toUpperCase();
+  const program = norm(input.program), year = norm(input.year), semester = norm(input.semester);
+  const group = norm(input.group), homeroom = norm(input.homeroom), teachers = norm(input.teachers);
+  if (!name || name.length > 80) throw new Error('Nama kelas wajib diisi (maksimal 80 karakter).');
+  if (!['X', 'XI', 'XII'].includes(grade)) throw new Error('Tingkat kelas harus X, XI, atau XII.');
+  if (!program || program.length > 100) throw new Error('Program keahlian wajib diisi.');
+  if (!/^20\d{2}\/20\d{2}$/.test(year)) throw new Error('Tahun ajaran harus berformat 2026/2027.');
+  if (!['Ganjil', 'Genap'].includes(semester)) throw new Error('Pilih semester Ganjil atau Genap.');
+  for (const [value, label, limit] of [[group, 'Kelompok belajar', 80], [homeroom, 'Wali kelas', 120], [teachers, 'Guru pengampu', 300]]) {
+    if (value.length > limit) throw new Error(label + ' terlalu panjang.');
+  }
+  const existing = await getClasses();
+  if (existing.some(c => c.name.toLowerCase() === name.toLowerCase() && c.year === year)) {
+    throw new Error('Nama kelas sudah tercatat untuk tahun ajaran tersebut.');
+  }
+  const slug = name.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 28) || 'KELAS';
+  const id = 'KLS-' + slug + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+  await appendRows(SHEETS.KELAS, [[id, name, grade, program, year, semester, group, homeroom, teachers, 'YA']]);
+  return adminDashboard();
+}
+
 export async function adminDashboard() {
-  await preload([SHEETS.UJIAN, SHEETS.SISWA, SHEETS.SESI]);
-  const [exams, students, attempts] = await Promise.all([getExams(), getStudents(), getAttempts()]);
+  await preload([SHEETS.UJIAN, SHEETS.SISWA, SHEETS.SESI, SHEETS.KELAS]);
+  const [exams, students, attempts, classes] = await Promise.all([getExams(), getStudents(), getAttempts(), getClasses()]);
   return {
     exams: exams.map(e => ({ id: e.id, title: e.title, status: e.status, duration: e.duration, start: fmtEpoch(e.start), end: fmtEpoch(e.end), showScore: e.showScore, sessionPin: e.sessionPin })),
     students: students.map(s => ({ id: s.id, name: s.name, kelas: s.kelas, kelompok: s.kelompok, active: s.active })),
+    classes,
     attempts: attempts.map(a => ({
       examId: a.examId, studentId: a.studentId, attemptId: a.attemptId, status: a.status,
       start: fmtEpoch(a.start), lastSaved: fmtEpoch(a.saved), submitted: fmtEpoch(a.submitted),
