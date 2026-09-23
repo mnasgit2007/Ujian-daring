@@ -334,6 +334,17 @@ export async function startUjian(studentId, examId, sessionPin = '') {
   };
 }
 
+export function heartbeatAttempt(studentId, examId, ticket) {
+  const t = readAttemptTicket(ticket, studentId, examId);
+  if (!t) throw new Error('Tiket sesi ujian tidak valid. Silakan muat ulang ujian.');
+  const now = nowMs();
+  return {
+    active: now <= t.deadline,
+    serverNow: fmtEpoch(now),
+    remainingMs: Math.max(0, t.deadline - now)
+  };
+}
+
 export async function saveJawaban(studentId, examId, answers, revision, ticket) {
   const validated = validateAnswers(answers, revision);
 
