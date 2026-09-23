@@ -241,25 +241,39 @@ export async function getClasses() {
   const [students, rows] = await Promise.all([getStudents(), readRows(SHEETS.KELAS).catch(e => { if ([400, 404].includes(Number(e?.code || e?.status || e?.response?.status))) return []; throw e; })]);
   const classes = new Map();
   rows.slice(1).filter(r => norm(r[0]) && norm(r[1])).forEach(r => {
-    const name = String(r[1]).trim();
-    classes.set(name.toLowerCase(), {
+    const name = String(r[1]).trim(), year = norm(r[4]);
+    classes.set(name.toLowerCase() + '|' + year, {
       id: norm(r[0]), name, grade: norm(r[2]), program: norm(r[3]),
-      year: norm(r[4]), semester: norm(r[5]), group: norm(r[6]),
+      year, semester: norm(r[5]), group: norm(r[6]),
       homeroom: norm(r[7]), teachers: norm(r[8]), active: norm(r[9]).toUpperCase() !== 'TIDAK',
       studentCount: 0, source: 'catalog'
     });
   });
-  // Kelas lama yang sudah tertulis di sheet SISWA tetap muncul tanpa migrasi.
-  students.forEach(s => {
-    const key = s.kelas.trim().toLowerCase();
-    if (!key) return;
-    if (!classes.has(key)) classes.set(key, {
-      id: '', name: s.kelas.trim(), grade: '', program: '', year: '', semester: '',
-      group: '', homeroom: '', teachers: '', active: true, studentCount: 0, source: 'legacy'
-    });
-    if (s.active) classes.get(key).studentCount++;
+  // Data siswa lama belum memiliki tahun ajaran. Jumlah aktif ditautkan ke
+  // entri katalog terbaru dengan nama yang sama; kelas lama tetap tampil.
+  const latestByName = new Map();
+  [...classes.values()].forEach(c => {
+    const key = c.name.toLowerCase(), old = latestByName.get(key);
+    if (!old || c.year > old.year) latestByName.set(key, c);
   });
-  return [...classes.values()].sort((a, b) => a.name.localeCompare(b.name, 'id'));
+  students.forEach(s => {
+    const name = s.kelas.trim(), key = name.toLowerCase();
+    if (!key) return;
+    let target = latestByName.get(key);
+    if (!target) {
+      const legacyKey = key + '|';
+      if (!classes.has(legacyKey)) {
+        target = {
+          id: '', name, grade: '', program: '', year: '', semester: '',
+          group: '', homeroom: '', teachers: '', active: true, studentCount: 0, source: 'legacy'
+        };
+        classes.set(legacyKey, target);
+        latestByName.set(key, target);
+      } else target = classes.get(legacyKey);
+    }
+    if (s.active) target.studentCount++;
+  });
+  return [...classes.values()].sort((a, b) => a.name.localeCompare(b.name, 'id') || a.year.localeCompare(b.year));
 }
 
 export async function adminCreateClass(input = {}) {
