@@ -25,7 +25,7 @@ export async function getStudents() {
   const rows = await readRows(SHEETS.SISWA);
   return rows.slice(1).filter(r => norm(r[0])).map(r => ({
     id: norm(r[0]), name: String(r[1] || ''), kelas: String(r[2] || ''), kelompok: String(r[3] || ''),
-    hash: String(r[4] || ''), active: isYa(r[5])
+    hash: String(r[4] || ''), active: isYa(r[5]), classId: norm(r[6])
   }));
 }
 
@@ -266,10 +266,12 @@ export async function getClasses() {
     const key = c.name.toLowerCase(), old = latestByName.get(key);
     if (!old || c.year > old.year) latestByName.set(key, c);
   });
+  const byId = new Map([...classes.values()].filter(c => c.id).map(c => [c.id, c]));
   students.forEach(s => {
     const name = s.kelas.trim(), key = name.toLowerCase();
-    if (!key) return;
-    let target = latestByName.get(key);
+    if (!key && !s.classId) return;
+    let target = s.classId ? byId.get(s.classId) : null;
+    if (!target) target = latestByName.get(key);
     if (!target) {
       const legacyKey = key + '|';
       if (!classes.has(legacyKey)) {
@@ -312,8 +314,8 @@ export async function getClassHistory() {
   const rows = await optionalRows(SHEETS.RIWAYAT_KELAS);
   return rows.slice(1).filter(r => norm(r[0]) && norm(r[1])).slice(-30).reverse().map(r => ({
     id: norm(r[0]), studentId: norm(r[1]), studentName: String(r[2] || ''),
-    fromClass: String(r[3] || ''), toClassId: norm(r[4]), toClass: String(r[5] || ''),
-    group: String(r[6] || ''), type: norm(r[7]), time: fmtEpoch(r[8])
+    fromClassId: norm(r[3]), fromClass: String(r[4] || ''), toClassId: norm(r[5]),
+    toClass: String(r[6] || ''), group: String(r[7] || ''), type: norm(r[8]), time: fmtEpoch(r[9])
   }));
 }
 
@@ -346,16 +348,18 @@ export async function adminAssignStudentClass(input = {}) {
 
   const student = studentRows[studentIndex];
   const oldClass = String(student[2] || '').trim(), oldGroup = String(student[3] || '').trim();
-  const newClass = String(target[1] || '').trim();
+  const oldClassId = norm(student[6]), newClass = String(target[1] || '').trim();
   group = group || String(target[6] || '').trim();
   if (!newClass) throw new Error('Nama kelas tujuan belum lengkap.');
-  if (oldClass === newClass && oldGroup === group) throw new Error('Siswa sudah berada di kelas dan kelompok tersebut.');
+  if (oldClassId === classId && oldClass === newClass && oldGroup === group) throw new Error('Siswa sudah berada di kelas dan kelompok tersebut.');
 
-  const type = !oldClass ? 'PENEMPATAN' : oldClass === newClass ? 'PERUBAHAN_KELOMPOK' : 'PERPINDAHAN';
-  await writeCells(SHEETS.SISWA, `C${studentIndex + 1}:D${studentIndex + 1}`, [[newClass, group]]);
+  const type = !oldClass ? 'PENEMPATAN' : oldClassId === classId ? 'PERUBAHAN_KELOMPOK' : 'PERPINDAHAN';
+  await writeCells(SHEETS.SISWA, `C${studentIndex + 1}:G${studentIndex + 1}`, [[
+    newClass, group, student[4] || '', student[5] || '', classId
+  ]]);
   const historyId = 'RKW-' + nowMs() + '-' + crypto.randomBytes(2).toString('hex').toUpperCase();
   await appendRows(SHEETS.RIWAYAT_KELAS, [[
-    historyId, studentId, String(student[1] || ''), oldClass, classId, newClass, group, type, nowMs()
+    historyId, studentId, String(student[1] || ''), oldClassId, oldClass, classId, newClass, group, type, nowMs()
   ]]);
   return adminDashboard();
 }
@@ -365,7 +369,7 @@ export async function adminDashboard() {
   const [exams, students, attempts, classes, classHistory] = await Promise.all([getExams(), getStudents(), getAttempts(), getClasses(), getClassHistory()]);
   return {
     exams: exams.map(e => ({ id: e.id, title: e.title, status: e.status, duration: e.duration, start: fmtEpoch(e.start), end: fmtEpoch(e.end), showScore: e.showScore, sessionPin: e.sessionPin })),
-    students: students.map(s => ({ id: s.id, name: s.name, kelas: s.kelas, kelompok: s.kelompok, active: s.active })),
+    students: students.map(s => ({ id: s.id, name: s.name, kelas: s.kelas, kelompok: s.kelompok, classId: s.classId, active: s.active })),
     classes,
     classHistory,
     attempts: attempts.map(a => ({
