@@ -271,7 +271,8 @@ export async function getClasses() {
     const name = s.kelas.trim(), key = name.toLowerCase();
     if (!key && !s.classId) return;
     let target = s.classId ? byId.get(s.classId) : null;
-    if (!target) target = latestByName.get(key);
+    if (!target && key) target = latestByName.get(key);
+    if (!target && !key) return;
     if (!target) {
       const legacyKey = key + '|';
       if (!classes.has(legacyKey)) {
@@ -353,7 +354,7 @@ export async function adminAssignStudentClass(input = {}) {
   if (!newClass) throw new Error('Nama kelas tujuan belum lengkap.');
   if (oldClassId === classId && oldClass === newClass && oldGroup === group) throw new Error('Siswa sudah berada di kelas dan kelompok tersebut.');
 
-  const type = !oldClass ? 'PENEMPATAN' : oldClassId === classId ? 'PERUBAHAN_KELOMPOK' : 'PERPINDAHAN';
+  const type = !oldClassId ? 'PENEMPATAN' : oldClassId === classId ? 'PERUBAHAN_KELOMPOK' : 'PERPINDAHAN';
   await writeCells(SHEETS.SISWA, `C${studentIndex + 1}:G${studentIndex + 1}`, [[
     newClass, group, student[4] || '', student[5] || '', classId
   ]]);
