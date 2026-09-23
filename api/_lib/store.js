@@ -6,7 +6,8 @@ export const SHEETS = Object.freeze({
   UJIAN: 'UJIAN',
   SOAL: 'SOAL',
   SESI: 'SESI',
-  LOGIN_LIMIT: 'LOGIN_LIMIT'
+  LOGIN_LIMIT: 'LOGIN_LIMIT',
+  KELAS: 'KELAS'
 });
 
 export const HEADERS = Object.freeze({
@@ -14,7 +15,8 @@ export const HEADERS = Object.freeze({
   UJIAN: ['UjianID', 'Judul', 'DurasiMenit', 'Mulai', 'Selesai', 'Status', 'TampilkanNilai'],
   SOAL: ['UjianID', 'SoalID', 'Pertanyaan', 'A', 'B', 'C', 'D', 'Kunci', 'Bobot', 'DriveFileId'],
   SESI: ['AttemptID', 'UjianID', 'SiswaID', 'MulaiMs', 'DeadlineMs', 'Status', 'JawabanJSON', 'Revisi', 'TerakhirSimpanMs', 'DiserahkanMs', 'Nilai', 'NilaiMaks'],
-  LOGIN_LIMIT: ['Key', 'Count', 'LastFailMs']
+  LOGIN_LIMIT: ['Key', 'Count', 'LastFailMs'],
+  KELAS: ['KelasID', 'NamaKelas', 'Tingkat', 'ProgramKeahlian', 'TahunAjaran', 'Semester', 'KelompokBelajar', 'WaliKelas', 'GuruPengampu', 'Aktif']
 });
 
 function colLetter(n) {
@@ -126,7 +128,7 @@ export function withRequestCache(fn) {
 }
 
 const WARM_MS = Math.max(0, Math.min(Number(process.env.SHEET_CACHE_MS || 0), 120000));
-const WARM_SHEETS = new Set([SHEETS.SISWA, SHEETS.UJIAN, SHEETS.SOAL]);
+const WARM_SHEETS = new Set([SHEETS.SISWA, SHEETS.UJIAN, SHEETS.SOAL, SHEETS.KELAS]);
 const warm = new Map();
 
 function cacheGet(sheet) {
