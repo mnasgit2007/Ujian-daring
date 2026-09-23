@@ -25,7 +25,7 @@ export async function getStudents() {
   const rows = await readRows(SHEETS.SISWA);
   return rows.slice(1).filter(r => norm(r[0])).map(r => ({
     id: norm(r[0]), name: String(r[1] || ''), kelas: String(r[2] || ''), kelompok: String(r[3] || ''),
-    hash: String(r[4] || ''), active: isYa(r[5])
+    hash: String(r[4] || ''), active: isYa(r[5]), classId: norm(r[6])
   }));
 }
 
@@ -237,8 +237,18 @@ export async function dashboardSiswa(id) {
 }
 
 
+async function optionalRows(sheet) {
+  try {
+    return await readRows(sheet);
+  } catch (e) {
+    const status = Number(e?.code || e?.status || e?.response?.status);
+    if ([400, 404].includes(status)) return [];
+    throw e;
+  }
+}
+
 export async function getClasses() {
-  const [students, rows] = await Promise.all([getStudents(), readRows(SHEETS.KELAS).catch(e => { if ([400, 404].includes(Number(e?.code || e?.status || e?.response?.status))) return []; throw e; })]);
+  const [students, rows] = await Promise.all([getStudents(), optionalRows(SHEETS.KELAS)]);
   const classes = new Map();
   rows.slice(1).filter(r => norm(r[0]) && norm(r[1])).forEach(r => {
     const name = String(r[1]).trim(), year = norm(r[4]);
@@ -256,10 +266,13 @@ export async function getClasses() {
     const key = c.name.toLowerCase(), old = latestByName.get(key);
     if (!old || c.year > old.year) latestByName.set(key, c);
   });
+  const byId = new Map([...classes.values()].filter(c => c.id).map(c => [c.id, c]));
   students.forEach(s => {
     const name = s.kelas.trim(), key = name.toLowerCase();
-    if (!key) return;
-    let target = latestByName.get(key);
+    if (!key && !s.classId) return;
+    let target = s.classId ? byId.get(s.classId) : null;
+    if (!target && key) target = latestByName.get(key);
+    if (!target && !key) return;
     if (!target) {
       const legacyKey = key + '|';
       if (!classes.has(legacyKey)) {
@@ -298,13 +311,68 @@ export async function adminCreateClass(input = {}) {
   return adminDashboard();
 }
 
+export async function getClassHistory() {
+  const rows = await optionalRows(SHEETS.RIWAYAT_KELAS);
+  return rows.slice(1).filter(r => norm(r[0]) && norm(r[1])).slice(-30).reverse().map(r => ({
+    id: norm(r[0]), studentId: norm(r[1]), studentName: String(r[2] || ''),
+    fromClassId: norm(r[3]), fromClass: String(r[4] || ''), toClassId: norm(r[5]),
+    toClass: String(r[6] || ''), group: String(r[7] || ''), type: norm(r[8]), time: fmtEpoch(r[9])
+  }));
+}
+
+export async function adminAssignStudentClass(input = {}) {
+  const studentId = norm(input.studentId), classId = norm(input.classId);
+  let group = norm(input.group);
+  if (!studentId || studentId.length > 40) throw new Error('Siswa tidak valid.');
+  if (!classId || classId.length > 80) throw new Error('Pilih kelas tujuan.');
+  if (group.length > 80) throw new Error('Nama kelompok terlalu panjang.');
+
+  const [studentRows, classRows] = await Promise.all([
+    readRows(SHEETS.SISWA, { fresh: true }),
+    readRows(SHEETS.KELAS, { fresh: true })
+  ]);
+  // Pastikan tab riwayat sudah dibuat sebelum data utama diubah.
+  try {
+    await readRows(SHEETS.RIWAYAT_KELAS, { fresh: true });
+  } catch (e) {
+    const status = Number(e?.code || e?.status || e?.response?.status);
+    if ([400, 404].includes(status)) {
+      throw new Error('Tab RIWAYAT_KELAS belum tersedia. Jalankan kembali scripts/setup-sheet.mjs.');
+    }
+    throw e;
+  }
+
+  const studentIndex = studentRows.findIndex((row, index) => index > 0 && norm(row[0]) === studentId);
+  if (studentIndex < 0 || !isYa(studentRows[studentIndex][5])) throw new Error('Siswa tidak ditemukan atau tidak aktif.');
+  const target = classRows.find((row, index) => index > 0 && norm(row[0]) === classId && norm(row[9]).toUpperCase() !== 'TIDAK');
+  if (!target) throw new Error('Kelas tujuan tidak ditemukan atau tidak aktif.');
+
+  const student = studentRows[studentIndex];
+  const oldClass = String(student[2] || '').trim(), oldGroup = String(student[3] || '').trim();
+  const oldClassId = norm(student[6]), newClass = String(target[1] || '').trim();
+  group = group || String(target[6] || '').trim();
+  if (!newClass) throw new Error('Nama kelas tujuan belum lengkap.');
+  if (oldClassId === classId && oldClass === newClass && oldGroup === group) throw new Error('Siswa sudah berada di kelas dan kelompok tersebut.');
+
+  const type = !oldClassId ? 'PENEMPATAN' : oldClassId === classId ? 'PERUBAHAN_KELOMPOK' : 'PERPINDAHAN';
+  await writeCells(SHEETS.SISWA, `C${studentIndex + 1}:G${studentIndex + 1}`, [[
+    newClass, group, student[4] || '', student[5] || '', classId
+  ]]);
+  const historyId = 'RKW-' + nowMs() + '-' + crypto.randomBytes(2).toString('hex').toUpperCase();
+  await appendRows(SHEETS.RIWAYAT_KELAS, [[
+    historyId, studentId, String(student[1] || ''), oldClassId, oldClass, classId, newClass, group, type, nowMs()
+  ]]);
+  return adminDashboard();
+}
+
 export async function adminDashboard() {
   await preload([SHEETS.UJIAN, SHEETS.SISWA, SHEETS.SESI]);
-  const [exams, students, attempts, classes] = await Promise.all([getExams(), getStudents(), getAttempts(), getClasses()]);
+  const [exams, students, attempts, classes, classHistory] = await Promise.all([getExams(), getStudents(), getAttempts(), getClasses(), getClassHistory()]);
   return {
     exams: exams.map(e => ({ id: e.id, title: e.title, status: e.status, duration: e.duration, start: fmtEpoch(e.start), end: fmtEpoch(e.end), showScore: e.showScore, sessionPin: e.sessionPin })),
-    students: students.map(s => ({ id: s.id, name: s.name, kelas: s.kelas, kelompok: s.kelompok, active: s.active })),
+    students: students.map(s => ({ id: s.id, name: s.name, kelas: s.kelas, kelompok: s.kelompok, classId: s.classId, active: s.active })),
     classes,
+    classHistory,
     attempts: attempts.map(a => ({
       examId: a.examId, studentId: a.studentId, attemptId: a.attemptId, status: a.status,
       start: fmtEpoch(a.start), lastSaved: fmtEpoch(a.saved), submitted: fmtEpoch(a.submitted),

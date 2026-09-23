@@ -29,14 +29,17 @@ async function main() {
     const range = `'${name}'!A1:${colLetter(HEADERS[name].length)}1`;
     const current = await api.spreadsheets.values.get({ spreadsheetId: id, range });
     const firstRow = (current.data.values && current.data.values[0]) || [];
-    if (firstRow.join('|') === HEADERS[name].join('|')) continue;
-    if (firstRow.length && firstRow.some(v => String(v).trim())) {
-      throw new Error(`Header sheet ${name} sudah ada tetapi berbeda dari yang diharapkan. Periksa manual sebelum melanjutkan.\nDitemukan: ${firstRow.join(' | ')}\nDiharapkan: ${HEADERS[name].join(' | ')}`);
+    const expected = HEADERS[name];
+    if (firstRow.join('|') === expected.join('|')) continue;
+    const appendOnly = firstRow.length > 0 && firstRow.length < expected.length &&
+      firstRow.every((value, index) => String(value) === String(expected[index]));
+    if (firstRow.length && firstRow.some(v => String(v).trim()) && !appendOnly) {
+      throw new Error(`Header sheet ${name} sudah ada tetapi berbeda dari yang diharapkan. Periksa manual sebelum melanjutkan.\nDitemukan: ${firstRow.join(' | ')}\nDiharapkan: ${expected.join(' | ')}`);
     }
     await api.spreadsheets.values.update({
-      spreadsheetId: id, range, valueInputOption: 'RAW', requestBody: { values: [HEADERS[name]] }
+      spreadsheetId: id, range, valueInputOption: 'RAW', requestBody: { values: [expected] }
     });
-    console.log('Header ditulis:', name);
+    console.log(appendOnly ? 'Header diperluas:' : 'Header ditulis:', name);
   }
 
   if (DEMO) await ensureDemoExam(api, id);

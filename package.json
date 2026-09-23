@@ -13,7 +13,6 @@
   },
   "scripts": {
     "test": "node --test",
-    "dev": "vercel dev",
     "hash-admin": "node scripts/hash-secret.mjs",
     "setup-sheet": "node scripts/setup-sheet.mjs",
     "generate-pins": "node scripts/generate-pins.mjs",

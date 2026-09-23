@@ -301,3 +301,16 @@ node --env-file=.env scripts/setup-sheet.mjs
 ```
 
 Skrip hanya menambah tab/header yang belum ada dan tidak mengubah baris data yang sudah terisi. Data kelas lama yang hanya tercantum pada kolom `Kelas` tab `SISWA` tetap ditampilkan. Katalog ini belum memindahkan siswa, mengelola riwayat perpindahan, atau membatasi ujian/tugas berdasarkan kelas; koneksi tersebut perlu diterapkan pada tahap berikutnya agar aturan akses ujian yang berjalan tidak berubah tanpa migrasi data yang teruji.
+
+
+## Penempatan dan perpindahan siswa
+
+Halaman **Kelas** menyediakan bagian **Penempatan siswa**. Admin dapat memilih kelas tujuan dan kelompok untuk setiap siswa aktif. Perubahan memperbarui kolom `Kelas`, `Kelompok`, dan `KelasID` pada tab `SISWA`. Setiap perubahan juga dicatat pada tab `RIWAYAT_KELAS` dengan kelas asal, kelas tujuan, jenis perubahan, dan waktu.
+
+Sebelum memakai fitur ini setelah pembaruan kode, jalankan:
+
+```bash
+node --env-file=.env scripts/setup-sheet.mjs
+```
+
+Skrip menambahkan tab `RIWAYAT_KELAS` dan memperluas header `SISWA` dengan kolom `KelasID`. Data siswa, PIN, status aktif, jawaban, nilai, dan sesi ujian yang sudah ada tidak diubah. Kelas tujuan harus sudah tercatat pada katalog `KELAS`.
