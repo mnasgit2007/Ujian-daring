@@ -132,6 +132,50 @@
       }
     }
 
+  
+    /* Structural session actions: one horizontal control group, never one-letter wrapping. */
+    .admin-session-actions{
+      display:flex!important;
+      flex-direction:row!important;
+      flex-wrap:nowrap!important;
+      align-items:stretch!important;
+      gap:8px!important;
+      width:100%!important;
+      min-width:0!important;
+    }
+    .admin-session-actions button{
+      display:inline-flex!important;
+      align-items:center!important;
+      justify-content:center!important;
+      flex:1 1 0!important;
+      width:auto!important;
+      min-width:0!important;
+      max-width:none!important;
+      min-height:40px!important;
+      padding:8px 7px!important;
+      font-size:11px!important;
+      line-height:1.2!important;
+      white-space:nowrap!important;
+      overflow:visible!important;
+      overflow-wrap:normal!important;
+      word-break:normal!important;
+      writing-mode:horizontal-tb!important;
+      transform:none!important;
+    }
+    .admin-session-table td.session-action-cell::before{
+      display:block!important;
+      width:auto!important;
+      margin:0 0 8px!important;
+    }
+    @media(max-width:680px){
+      .admin-session-actions{gap:6px!important}
+      .admin-session-actions button{
+        padding-left:4px!important;
+        padding-right:4px!important;
+        font-size:10px!important;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -314,9 +358,13 @@ function renderAdmin(d){
     ].forEach(([label,text])=>tr.append(labeled('td',text,label)));
     const action=node('td');
     action.dataset.label='Aksi';
-    action.append(btn(e.id===S.adminExamId?'Dipilih':'Lihat progres',()=>selectAdminExam(e.id,d),'secondary smallbtn'));
-    action.append(btn(e.status==='BUKA'?'Tutup':'Buka',async ev=>{ev.stopPropagation();if(!confirm('Ubah status ujian '+e.id+' menjadi '+(e.status==='BUKA'?'TUTUP':'BUKA')+'?'))return;try{renderAdmin(await call('adminSetStatus',S.token,e.id,e.status==='BUKA'?'TUTUP':'BUKA'));}catch(err){error(err);}},'smallbtn'));
-    if(e.status==='BUKA')action.append(btn('Acak PIN',async ev=>{ev.stopPropagation();if(!confirm('Buat PIN sesi baru untuk '+e.id+'? PIN lama tidak akan berlaku.'))return;try{renderAdmin(await call('adminRotateSessionPin',S.token,e.id));}catch(err){error(err);}},'secondary smallbtn'));
+    action.className='session-action-cell';
+    const actionGroup=node('div');
+    actionGroup.className='admin-session-actions';
+    actionGroup.append(btn(e.id===S.adminExamId?'Dipilih':'Lihat progres',()=>selectAdminExam(e.id,d),'secondary smallbtn'));
+    actionGroup.append(btn(e.status==='BUKA'?'Tutup':'Buka',async ev=>{ev.stopPropagation();if(!confirm('Ubah status ujian '+e.id+' menjadi '+(e.status==='BUKA'?'TUTUP':'BUKA')+'?'))return;try{renderAdmin(await call('adminSetStatus',S.token,e.id,e.status==='BUKA'?'TUTUP':'BUKA'));}catch(err){error(err);}},'smallbtn'));
+    if(e.status==='BUKA')actionGroup.append(btn('Acak PIN',async ev=>{ev.stopPropagation();if(!confirm('Buat PIN sesi baru untuk '+e.id+'? PIN lama tidak akan berlaku.'))return;try{renderAdmin(await call('adminRotateSessionPin',S.token,e.id));}catch(err){error(err);}},'secondary smallbtn'));
+    action.append(actionGroup);
     tr.append(action);exams.append(tr);
   });
   const selectedBox=el('adminSelectedSession');
