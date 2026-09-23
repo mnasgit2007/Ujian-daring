@@ -288,3 +288,16 @@ scripts/hash-secret.mjs   hitung ADMIN_HASH
 scripts/setup-sheet.mjs   buat tab & header Spreadsheet (sekali jalan)
 scripts/generate-pins.mjs buat PIN siswa baru + sheet PIN_DISTRIBUSI
 ```
+
+
+## Katalog kelas (fitur awal Multi-kelas)
+
+Panel guru memiliki halaman **Kelas** untuk mencari dan memfilter kelas, melihat jumlah siswa yang sudah tercatat pada tab `SISWA`, dan menambahkan metadata kelas (tingkat, program keahlian, tahun ajaran, semester, kelompok belajar, wali kelas, dan guru pengampu).
+
+Sebelum memakai tombol **Tambah kelas** pada versi ini, jalankan kembali setup sheet setelah perubahan kode diunduh:
+
+```bash
+node --env-file=.env scripts/setup-sheet.mjs
+```
+
+Skrip hanya menambah tab/header yang belum ada dan tidak mengubah baris data yang sudah terisi. Data kelas lama yang hanya tercantum pada kolom `Kelas` tab `SISWA` tetap ditampilkan. Katalog ini belum memindahkan siswa, mengelola riwayat perpindahan, atau membatasi ujian/tugas berdasarkan kelas; koneksi tersebut perlu diterapkan pada tahap berikutnya agar aturan akses ujian yang berjalan tidak berubah tanpa migrasi data yang teruji.
