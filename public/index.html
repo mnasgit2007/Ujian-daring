@@ -452,6 +452,7 @@ const ENDPOINTS={
   getQuestionImage:(token,examId,questionId)=>['image',{token,examId,questionId}],
   adminSetStatus:(token,examId,status)=>['admin',{token,action:'setStatus',examId,status}],
   adminRotateSessionPin:(token,examId)=>['admin',{token,action:'rotateSessionPin',examId}],
+  adminCreateClass:(token,input)=>['admin',{token,action:'createClass',...input}],
   adminResetAttempt:(token,examId,studentId)=>['admin',{token,action:'resetAttempt',examId,studentId}],
   adminListQuestions:(token,examId)=>['admin',{token,action:'listQuestions',examId}],
   adminCreateQuestion:(token,input)=>['admin',{token,action:'createQuestion',...input}],
@@ -532,7 +533,16 @@ function setupAdminNavigation(){
   const nav=node('nav');nav.id='adminNav';nav.className='admin-nav';nav.setAttribute('aria-label','Navigasi admin');
   const monitor=btn('Monitor Ujian',()=>setAdminPage('monitor'),'active');monitor.id='adminMonitorNav';
   const bank=btn('Kelola Bank Soal',openQuestionEditor);bank.id='adminBankNav';
-  nav.append(monitor,bank);heading.append(nav);
+  const classes=btn('Kelas',()=>setAdminPage('classes'));classes.id='adminClassesNav';
+  nav.append(monitor,bank,classes);heading.append(nav);
+  const classPage=document.createElement('section');classPage.id='adminClassPage';classPage.className='hidden';classPage.innerHTML='<div class="card table-card"><div class="class-page-heading"><div><h2>Daftar kelas</h2><p class="muted">Kelola informasi kelas untuk tahun ajaran berjalan.</p></div><button id="addClassButton" type="button">＋ Tambah kelas</button></div><div class="class-toolbar"><input id="classSearch" type="text" placeholder="Cari nama kelas, program, atau wali kelas…" aria-label="Cari kelas"><select id="classGrade"><option value="">Semua tingkat</option><option>X</option><option>XI</option><option>XII</option></select><select id="classYear"><option value="">Semua tahun ajaran</option></select></div><div class="class-stats"><div class="class-stat"><small>Total kelas</small><strong id="classTotal">0</strong></div><div class="class-stat"><small>Total siswa aktif</small><strong id="classStudents">0</strong></div><div class="class-stat"><small>Perlu dilengkapi</small><strong id="classNeedsInfo">0</strong></div></div><div id="classForm" class="class-form hidden"><h3 id="classFormTitle">Tambah kelas</h3><form id="newClassForm"><div class="class-form-grid"><label class="field">Tingkat kelas *<select id="newClassGrade" required><option value="">Pilih tingkat</option><option>X</option><option>XI</option><option>XII</option></select></label><label class="field">Program keahlian *<input id="newClassProgram" type="text" required maxlength="100" placeholder="Contoh: DKV atau ATR"></label><label class="field full-field">Nama kelas *<input id="newClassName" type="text" required maxlength="80" placeholder="Contoh: XI DKV"></label><label class="field">Tahun ajaran *<input id="newClassYear" type="text" required pattern="20[0-9]{2}/20[0-9]{2}" placeholder="2026/2027"></label><label class="field">Semester *<select id="newClassSemester" required><option>Ganjil</option><option>Genap</option></select></label><label class="field">Kelompok belajar<input id="newClassGroup" type="text" maxlength="80" placeholder="Contoh: Rombel 1"></label><label class="field">Wali kelas<input id="newClassHomeroom" type="text" maxlength="120" placeholder="Nama wali kelas"></label><label class="field full-field">Guru pengampu<input id="newClassTeachers" type="text" maxlength="300" placeholder="Nama guru, pisahkan dengan koma"></label></div><p class="class-status-note">Data siswa dan pembatasan ujian per kelas akan diatur terpisah. Siswa lama tetap dapat digunakan seperti biasa.</p><div class="flex"><button id="saveClassButton" type="submit">Simpan kelas</button><button id="cancelClassButton" class="secondary" type="button">Batal</button></div></form></div><div id="classCatalogList"></div></div>';
+  document.querySelector('#adminView').insertBefore(classPage,document.querySelector('#questionEditor'));
+  el('addClassButton').onclick=()=>{el('newClassForm').reset();const y=new Date().getFullYear();el('newClassYear').value=y+'/'+(y+1);el('classForm').classList.remove('hidden');el('newClassGrade').focus();};
+  el('cancelClassButton').onclick=()=>el('classForm').classList.add('hidden');
+  el('classSearch').addEventListener('input',()=>renderClassCatalog(S.adminClasses||[]));
+  el('classGrade').addEventListener('change',()=>renderClassCatalog(S.adminClasses||[]));
+  el('classYear').addEventListener('change',()=>renderClassCatalog(S.adminClasses||[]));
+  el('newClassForm').addEventListener('submit',async ev=>{ev.preventDefault();const button=el('saveClassButton');button.disabled=true;const input={grade:el('newClassGrade').value,program:el('newClassProgram').value,name:el('newClassName').value,year:el('newClassYear').value,semester:el('newClassSemester').value,group:el('newClassGroup').value,homeroom:el('newClassHomeroom').value,teachers:el('newClassTeachers').value};try{const d=await call('adminCreateClass',S.token,input);renderAdmin(d);el('classForm').classList.add('hidden');}catch(e){error(e);}finally{button.disabled=false;}});
   const workspace=document.querySelector('#adminView .admin-workspace');if(workspace)workspace.id='adminMonitorPage';
   const sessionTable=document.querySelector('#adminExams')?.closest('table');if(sessionTable)sessionTable.classList.add('admin-session-table');
   const progressTable=document.querySelector('#adminAttempts')?.closest('table');if(progressTable)progressTable.classList.add('admin-progress-table');
@@ -540,11 +550,13 @@ function setupAdminNavigation(){
 }
 function setAdminPage(page){
   setupAdminNavigation();S.adminPage=page;
-  const monitor=page==='monitor';
+  const monitor=page==='monitor',bank=page==='bank',classes=page==='classes';
   el('adminMonitorPage')?.classList.toggle('hidden',!monitor);
-  el('questionEditor')?.classList.toggle('hidden',monitor);
+  el('questionEditor')?.classList.toggle('hidden',!bank);
+  el('adminClassPage')?.classList.toggle('hidden',!classes);
   el('adminMonitorNav')?.classList.toggle('active',monitor);
-  el('adminBankNav')?.classList.toggle('active',!monitor);
+  el('adminBankNav')?.classList.toggle('active',bank);
+  el('adminClassesNav')?.classList.toggle('active',classes);
   if(!monitor)window.scrollTo({top:0,behavior:'smooth'});
 }
 function renderClassCatalog(data){
@@ -582,6 +594,7 @@ function renderAdmin(d){
   setupAdminNavigation();
   setAdminPage(S.adminPage||'monitor');
   el('adminTime').textContent='Pembaruan: '+d.refreshed+' (zona waktu sekolah)';
+  renderClassCatalog(d.classes||[]);
   if(!d.exams.some(e=>e.id===S.adminExamId))S.adminExamId=d.exams[0]?.id||'';
   const selected=d.exams.find(e=>e.id===S.adminExamId);
   const exams=el('adminExams');exams.replaceChildren();
