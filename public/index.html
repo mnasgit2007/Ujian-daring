@@ -90,6 +90,48 @@
       .admin-session-table td:last-child{grid-template-columns:1fr}
     }
 
+  
+    /* Final fix: keep session action buttons horizontal at every responsive width. */
+    @media(max-width:1200px){
+      .admin-session-table td:last-child{
+        display:grid!important;
+        grid-template-columns:repeat(3,minmax(0,1fr))!important;
+        gap:8px!important;
+        align-items:stretch!important;
+        width:100%!important;
+      }
+      .admin-session-table td:last-child::before{
+        grid-column:1/-1!important;
+        width:auto!important;
+      }
+      .admin-session-table td:last-child button{
+        display:block!important;
+        width:100%!important;
+        min-width:0!important;
+        max-width:none!important;
+        flex:none!important;
+        padding:10px 6px!important;
+        font-size:11px!important;
+        line-height:1.2!important;
+        white-space:nowrap!important;
+        overflow:visible!important;
+        overflow-wrap:normal!important;
+        word-break:keep-all!important;
+        writing-mode:horizontal-tb!important;
+        transform:none!important;
+      }
+    }
+    @media(max-width:680px){
+      .admin-session-table td:last-child{
+        display:grid!important;
+        grid-template-columns:repeat(3,minmax(0,1fr))!important;
+      }
+      .admin-session-table td:last-child button{
+        padding-inline:4px!important;
+        font-size:10px!important;
+      }
+    }
+
   </style>
 </head>
 <body>
