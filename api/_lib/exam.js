@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
-import { SHEETS, readRows, appendRows, writeCells, clearCells, preload, cellToEpoch, fmtEpoch, nowMs } from './store.js';
-import { norm, isYa, signAttemptTicket, readAttemptTicket } from './auth.js';
+import QRCode from 'qrcode';
+import { SHEETS, readRows, appendRows, writeCells, writeRanges, clearCells, preload, cellToEpoch, fmtEpoch, nowMs } from './store.js';
+import { norm, isYa, hashSiswa, signAttemptTicket, readAttemptTicket } from './auth.js';
 
 export const MAX_SOAL = 80;
 export const MAX_JAWAB_BYTES = 30000;
@@ -25,7 +26,7 @@ export async function getStudents() {
   const rows = await readRows(SHEETS.SISWA);
   return rows.slice(1).filter(r => norm(r[0])).map(r => ({
     id: norm(r[0]), name: String(r[1] || ''), kelas: String(r[2] || ''), kelompok: String(r[3] || ''),
-    hash: String(r[4] || ''), active: isYa(r[5]), classId: norm(r[6])
+    hash: String(r[4] || ''), active: isYa(r[5]), classId: norm(r[6]), qrToken: norm(r[7])
   }));
 }
 
@@ -311,6 +312,120 @@ export async function adminCreateClass(input = {}) {
   return adminDashboard();
 }
 
+export function normalizeStudentInput(input = {}) {
+  const id = norm(input.studentId);
+  const name = norm(input.name);
+  const classId = norm(input.classId);
+  const group = norm(input.group);
+  if (!/^[A-Za-z0-9._-]{2,40}$/.test(id)) {
+    throw new Error('ID siswa harus 2–40 karakter dan hanya boleh berisi huruf, angka, titik, garis bawah, atau tanda hubung.');
+  }
+  if (!name || name.length > 120) throw new Error('Nama siswa wajib diisi (maksimal 120 karakter).');
+  if (!classId || classId.length > 80) throw new Error('Pilih kelas siswa.');
+  if (group.length > 80) throw new Error('Nama kelompok terlalu panjang.');
+  return { id, name, classId, group };
+}
+
+function createStudentPin() {
+  return crypto.randomInt(0, 100000000).toString().padStart(8, '0');
+}
+
+function createQrToken() {
+  return crypto.randomBytes(24).toString('base64url');
+}
+
+export function attendancePayload(token) {
+  const value = norm(token);
+  if (!/^[A-Za-z0-9_-]{20,80}$/.test(value)) throw new Error('Token QR siswa tidak valid.');
+  return 'UJIAN-ABSEN:' + value;
+}
+
+function activeClassFromRows(rows, classId) {
+  return rows.find((row, index) => index > 0 && norm(row[0]) === classId && norm(row[9]).toUpperCase() !== 'TIDAK');
+}
+
+async function ensureClassHistorySheet() {
+  try {
+    await readRows(SHEETS.RIWAYAT_KELAS, { fresh: true });
+  } catch (e) {
+    const status = Number(e?.code || e?.status || e?.response?.status);
+    if ([400, 404].includes(status)) {
+      throw new Error('Tab RIWAYAT_KELAS belum tersedia. Jalankan kembali scripts/setup-sheet.mjs.');
+    }
+    throw e;
+  }
+}
+
+export async function adminCreateStudent(input = {}) {
+  const student = normalizeStudentInput(input);
+  const [studentRows, classRows] = await Promise.all([
+    readRows(SHEETS.SISWA, { fresh: true }),
+    readRows(SHEETS.KELAS, { fresh: true })
+  ]);
+  await ensureClassHistorySheet();
+  if (studentRows.some((row, index) => index > 0 && norm(row[0]).toLowerCase() === student.id.toLowerCase())) {
+    throw new Error('ID siswa sudah digunakan. Gunakan ID lain yang unik.');
+  }
+  const target = activeClassFromRows(classRows, student.classId);
+  if (!target) throw new Error('Kelas siswa tidak ditemukan atau tidak aktif.');
+  const className = norm(target[1]);
+  if (!className) throw new Error('Nama kelas tujuan belum lengkap.');
+  const group = student.group || norm(target[6]);
+  const pin = createStudentPin();
+  const qrToken = createQrToken();
+  await appendRows(SHEETS.SISWA, [[
+    student.id, student.name, className, group, hashSiswa(student.id, pin), 'YA', student.classId, qrToken
+  ]]);
+  const historyId = 'RKW-' + nowMs() + '-' + crypto.randomBytes(2).toString('hex').toUpperCase();
+  await appendRows(SHEETS.RIWAYAT_KELAS, [[
+    historyId, student.id, student.name, '', '', student.classId, className, group, 'PENEMPATAN', nowMs()
+  ]]);
+  return { ...(await adminDashboard()), createdStudent: { id: student.id, name: student.name, pin } };
+}
+
+export async function adminGetStudentQrs(input = {}) {
+  const studentId = norm(input.studentId);
+  const classId = norm(input.classId);
+  if (!studentId && !classId) throw new Error('Pilih siswa atau kelas untuk membuat QR.');
+  if (studentId && classId) throw new Error('Pilih salah satu: siswa atau kelas.');
+
+  const [studentRows, classRows] = await Promise.all([
+    readRows(SHEETS.SISWA, { fresh: true }),
+    classId ? readRows(SHEETS.KELAS, { fresh: true }) : Promise.resolve([])
+  ]);
+  let className = '';
+  if (classId) {
+    const target = activeClassFromRows(classRows, classId);
+    if (!target) throw new Error('Kelas tidak ditemukan atau tidak aktif.');
+    className = norm(target[1]);
+  }
+
+  const selected = [];
+  const tokenUpdates = [];
+  studentRows.forEach((row, index) => {
+    if (index === 0 || !norm(row[0]) || !isYa(row[5])) return;
+    const matches = studentId ? norm(row[0]) === studentId : norm(row[6]) === classId;
+    if (!matches) return;
+    const token = norm(row[7]) || createQrToken();
+    if (!norm(row[7])) tokenUpdates.push({ a1: `H${index + 1}`, values: [[token]] });
+    selected.push({ id: norm(row[0]), name: String(row[1] || ''), kelas: String(row[2] || ''), group: String(row[3] || ''), token });
+  });
+  if (!selected.length) throw new Error(studentId ? 'Siswa aktif tidak ditemukan.' : 'Belum ada siswa aktif di kelas ini.');
+  if (tokenUpdates.length) await writeRanges(SHEETS.SISWA, tokenUpdates);
+
+  const cards = await Promise.all(selected.map(async student => ({
+    id: student.id,
+    name: student.name,
+    kelas: student.kelas || className,
+    group: student.group,
+    svg: await QRCode.toString(attendancePayload(student.token), {
+      type: 'svg', errorCorrectionLevel: 'M', margin: 2, width: 280,
+      color: { dark: '#111827', light: '#FFFFFF' }
+    })
+  })));
+  return { title: studentId ? selected[0].name : className, cards };
+}
+
 export async function getClassHistory() {
   const rows = await optionalRows(SHEETS.RIWAYAT_KELAS);
   return rows.slice(1).filter(r => norm(r[0]) && norm(r[1])).slice(-30).reverse().map(r => ({
@@ -332,15 +447,7 @@ export async function adminAssignStudentClass(input = {}) {
     readRows(SHEETS.KELAS, { fresh: true })
   ]);
   // Pastikan tab riwayat sudah dibuat sebelum data utama diubah.
-  try {
-    await readRows(SHEETS.RIWAYAT_KELAS, { fresh: true });
-  } catch (e) {
-    const status = Number(e?.code || e?.status || e?.response?.status);
-    if ([400, 404].includes(status)) {
-      throw new Error('Tab RIWAYAT_KELAS belum tersedia. Jalankan kembali scripts/setup-sheet.mjs.');
-    }
-    throw e;
-  }
+  await ensureClassHistorySheet();
 
   const studentIndex = studentRows.findIndex((row, index) => index > 0 && norm(row[0]) === studentId);
   if (studentIndex < 0 || !isYa(studentRows[studentIndex][5])) throw new Error('Siswa tidak ditemukan atau tidak aktif.');
@@ -370,7 +477,7 @@ export async function adminDashboard() {
   const [exams, students, attempts, classes, classHistory] = await Promise.all([getExams(), getStudents(), getAttempts(), getClasses(), getClassHistory()]);
   return {
     exams: exams.map(e => ({ id: e.id, title: e.title, status: e.status, duration: e.duration, start: fmtEpoch(e.start), end: fmtEpoch(e.end), showScore: e.showScore, sessionPin: e.sessionPin })),
-    students: students.map(s => ({ id: s.id, name: s.name, kelas: s.kelas, kelompok: s.kelompok, classId: s.classId, active: s.active })),
+    students: students.map(s => ({ id: s.id, name: s.name, kelas: s.kelas, kelompok: s.kelompok, classId: s.classId, active: s.active, hasQr: Boolean(s.qrToken) })),
     classes,
     classHistory,
     attempts: attempts.map(a => ({
