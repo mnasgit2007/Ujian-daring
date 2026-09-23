@@ -176,6 +176,112 @@
       }
     }
 
+  
+    /* Final responsive session layout: card rows with a full-width action area. */
+    .admin-session-actions{
+      display:flex!important;
+      flex-direction:row!important;
+      flex-wrap:wrap!important;
+      align-items:stretch!important;
+      gap:8px!important;
+      width:100%!important;
+      min-width:0!important;
+    }
+    .admin-session-actions button{
+      display:inline-flex!important;
+      align-items:center!important;
+      justify-content:center!important;
+      flex:0 1 auto!important;
+      width:auto!important;
+      min-width:112px!important;
+      max-width:none!important;
+      min-height:40px!important;
+      padding:9px 11px!important;
+      font-size:12px!important;
+      line-height:1.2!important;
+      white-space:nowrap!important;
+      overflow:visible!important;
+      overflow-wrap:normal!important;
+      word-break:normal!important;
+      writing-mode:horizontal-tb!important;
+      transform:none!important;
+    }
+    @media(max-width:1200px){
+      .admin-session-table{
+        width:100%!important;
+        min-width:0!important;
+        table-layout:fixed!important;
+      }
+      .admin-session-table tbody{
+        display:grid!important;
+        grid-template-columns:minmax(0,1fr)!important;
+        gap:12px!important;
+        padding:12px!important;
+      }
+      .admin-session-table tr{
+        display:grid!important;
+        grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+        gap:0!important;
+        width:100%!important;
+        min-width:0!important;
+        margin:0!important;
+        padding:0!important;
+        overflow:hidden!important;
+      }
+      .admin-session-table td{
+        display:block!important;
+        min-width:0!important;
+        width:auto!important;
+        padding:12px 14px!important;
+        border:0!important;
+        overflow:visible!important;
+      }
+      .admin-session-table td::before{
+        display:block!important;
+        width:auto!important;
+        margin:0 0 4px!important;
+        white-space:nowrap!important;
+      }
+      .admin-session-table td:nth-child(1),
+      .admin-session-table td:nth-child(4){
+        grid-column:1/-1!important;
+      }
+      .admin-session-table td:nth-child(2),
+      .admin-session-table td:nth-child(3){
+        grid-column:auto!important;
+      }
+      .admin-session-table td.session-action-cell{
+        padding-top:10px!important;
+        border-top:1px solid var(--line)!important;
+      }
+      .admin-session-actions{
+        flex-wrap:wrap!important;
+        gap:8px!important;
+      }
+      .admin-session-actions button{
+        flex:1 1 120px!important;
+        min-width:120px!important;
+        max-width:none!important;
+      }
+    }
+    @media(max-width:680px){
+      .admin-session-table tr{
+        grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+      }
+      .admin-session-table td{
+        padding:11px 12px!important;
+      }
+      .admin-session-actions{
+        gap:7px!important;
+      }
+      .admin-session-actions button{
+        flex:1 1 125px!important;
+        min-width:125px!important;
+        padding:9px 8px!important;
+        font-size:11px!important;
+      }
+    }
+
   </style>
 </head>
 <body>
