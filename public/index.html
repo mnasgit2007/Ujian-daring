@@ -591,9 +591,9 @@ function renderStudentPlacement(students,classes,history){
      const targetLabel=node('label','Kelas tujuan');const target=document.createElement('select');target.append(new Option('Pilih kelas tujuan',''),...catalog.map(c=>new Option(c.name+' · '+c.year,c.id)));targetLabel.append(target);
      const exact=catalog.find(c=>c.id===s.classId);const latest=exact||catalog.find(c=>c.name===s.kelas);if(latest)target.value=latest.id;
      const groupLabel=node('label','Kelompok');const group=document.createElement('input');group.type='text';group.maxLength=80;group.placeholder='Contoh: 1';group.value=s.kelompok||latest?.group||'';groupLabel.append(group);
-     const action=btn(s.kelas?'Pindahkan':'Tempatkan',async()=>{
+     const action=btn(s.classId?'Pindahkan':(s.kelas?'Tetapkan':'Tempatkan'),async()=>{
        const classId=target.value,targetClass=catalog.find(c=>c.id===classId);if(!targetClass){error('Pilih kelas tujuan.');return;}
-       if(s.kelas&&s.classId!==classId&&!confirm('Pindahkan '+s.name+' dari '+s.kelas+' ke '+targetClass.name+'?'))return;
+       const changingClass=s.classId?s.classId!==classId:Boolean(s.kelas&&s.kelas!==targetClass.name);if(changingClass&&!confirm('Pindahkan '+s.name+' dari '+s.kelas+' ke '+targetClass.name+'?'))return;
        action.disabled=true;
        try{const data=await call('adminAssignStudentClass',S.token,{studentId:s.id,classId,group:group.value});renderAdmin(data);setAdminPage('classes');alert('Data kelas '+s.name+' berhasil diperbarui.');}catch(e){error(e);}finally{action.disabled=false;}
      },'smallbtn');
