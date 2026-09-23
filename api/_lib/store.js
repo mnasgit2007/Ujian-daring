@@ -12,7 +12,7 @@ export const SHEETS = Object.freeze({
 });
 
 export const HEADERS = Object.freeze({
-  SISWA: ['ID', 'Nama', 'Kelas', 'Kelompok', 'PinHash', 'Aktif', 'KelasID'],
+  SISWA: ['ID', 'Nama', 'Kelas', 'Kelompok', 'PinHash', 'Aktif', 'KelasID', 'QrToken'],
   UJIAN: ['UjianID', 'Judul', 'DurasiMenit', 'Mulai', 'Selesai', 'Status', 'TampilkanNilai'],
   SOAL: ['UjianID', 'SoalID', 'Pertanyaan', 'A', 'B', 'C', 'D', 'Kunci', 'Bobot', 'DriveFileId'],
   SESI: ['AttemptID', 'UjianID', 'SiswaID', 'MulaiMs', 'DeadlineMs', 'Status', 'JawabanJSON', 'Revisi', 'TerakhirSimpanMs', 'DiserahkanMs', 'Nilai', 'NilaiMaks'],
@@ -214,6 +214,21 @@ export async function writeCells(sheet, a1, values) {
     range: `'${sheet}'!${a1}`,
     valueInputOption: 'RAW',
     requestBody: { values }
+  }));
+  invalidate(sheet);
+}
+
+export async function writeRanges(sheet, ranges) {
+  if (!ranges || !ranges.length) return;
+  await apiCall(() => sheetsApi().spreadsheets.values.batchUpdate({
+    spreadsheetId: spreadsheetId(),
+    requestBody: {
+      valueInputOption: 'RAW',
+      data: ranges.map(item => ({
+        range: `'${sheet}'!${item.a1}`,
+        values: item.values
+      }))
+    }
   }));
   invalidate(sheet);
 }

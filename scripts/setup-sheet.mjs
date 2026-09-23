@@ -45,7 +45,7 @@ async function main() {
   if (DEMO) await ensureDemoExam(api, id);
 
   console.log('\nSetup selesai. Sheet siap dipakai:', Object.keys(HEADERS).join(', '));
-  console.log('Selanjutnya: isi sheet SISWA lalu jalankan `npm run generate-pins`.');
+  console.log('Siswa baru dapat ditambahkan dari dashboard admin. Untuk baris SISWA yang diimpor manual tanpa PIN, jalankan `npm run generate-pins`.');
 }
 
 async function ensureDemoExam(api, id) {

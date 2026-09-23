@@ -313,4 +313,20 @@ Sebelum memakai fitur ini setelah pembaruan kode, jalankan:
 node --env-file=.env scripts/setup-sheet.mjs
 ```
 
-Skrip menambahkan tab `RIWAYAT_KELAS` dan memperluas header `SISWA` dengan kolom `KelasID`. Data siswa, PIN, status aktif, jawaban, nilai, dan sesi ujian yang sudah ada tidak diubah. Kelas tujuan harus sudah tercatat pada katalog `KELAS`.
+Skrip menambahkan tab `RIWAYAT_KELAS` dan memperluas header `SISWA` dengan kolom `KelasID` serta `QrToken`. Data siswa, PIN, status aktif, jawaban, nilai, dan sesi ujian yang sudah ada tidak diubah. Kelas tujuan harus sudah tercatat pada katalog `KELAS`.
+
+## Tambah siswa dan QR identitas
+
+Pada kartu kelas, klik **Kelola siswa** untuk membuka daftar siswa kelas tersebut. Admin dapat:
+
+- menambah siswa baru langsung ke kelas;
+- memperoleh PIN login 8 digit yang hanya ditampilkan satu kali setelah penyimpanan;
+- mencetak QR per siswa atau sekaligus untuk seluruh siswa aktif dalam satu kelas.
+
+PIN disimpan sebagai hash seperti sebelumnya. QR tidak memuat PIN atau kata sandi, melainkan token acak pada kolom `QrToken` di tab `SISWA`. Jalankan setup sekali setelah menarik perubahan ini agar header baru ditambahkan tanpa mengubah baris lama:
+
+```bash
+node --env-file=.env scripts/setup-sheet.mjs
+```
+
+QR pada tahap ini merupakan kartu identitas untuk modul absensi berikutnya; pemindaian dan pencatatan kehadiran belum diaktifkan. Implementasi absensi sebaiknya tetap memerlukan sesi yang dibuka guru dan batas waktu, sehingga foto QR saja tidak langsung dianggap hadir.
