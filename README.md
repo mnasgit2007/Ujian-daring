@@ -341,7 +341,7 @@ Halaman **Absensi QR** pada panel guru menyediakan alur berikut:
 4. arahkan kartu QR siswa ke kamera;
 5. periksa nama siswa pada daftar kehadiran, lalu tutup sesi setelah selesai.
 
-Sistem menolak QR yang tidak dikenal, siswa dari kelas lain, pemindaian kedua pada sesi yang sama, dan QR yang dipindai setelah sesi ditutup. Chrome atau Edge terbaru direkomendasikan untuk pemindaian kamera. Perangkat pemindai QR eksternal tetap dapat digunakan melalui kolom hasil QR.
+Sistem menolak QR yang tidak dikenal, siswa dari kelas lain, pemindaian kedua pada sesi yang sama, dan QR yang dipindai setelah sesi ditutup. Aplikasi memakai `BarcodeDetector` bila tersedia dan otomatis beralih ke decoder `jsQR` lokal pada browser/perangkat yang tidak mendukung API tersebut. Perangkat pemindai QR eksternal tetap dapat digunakan melalui kolom hasil QR.
 
 Setelah menarik pembaruan fitur ini, jalankan setup untuk membuat tab `ABSENSI_SESI` dan `ABSENSI`:
 
