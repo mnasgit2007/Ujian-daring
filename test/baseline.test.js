@@ -66,6 +66,9 @@ test('admin UI keeps class, student, and QR endpoint bindings', async () => {
   ]) {
     assert.match(html, new RegExp(`\\b${endpoint}:`), endpoint);
   }
+  assert.match(html, /<script src="\/vendor\/jsQR\.js"><\/script>/, 'bundled QR fallback');
+  assert.match(html, /typeof window\.jsQR!==['"]function['"]/, 'QR fallback feature check');
+  await assert.doesNotReject(fs.access(path.join(root, 'public/vendor/jsQR.js')), 'bundled jsQR file');
 });
 
 test('student and admin hashes are deterministic and distinct', () => {
