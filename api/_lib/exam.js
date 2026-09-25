@@ -340,6 +340,14 @@ export function attendancePayload(token) {
   return 'UJIAN-ABSEN:' + value;
 }
 
+export function attendanceTokenFromPayload(payload) {
+  const value = norm(payload);
+  if (!value.startsWith('UJIAN-ABSEN:')) throw new Error('QR bukan kartu siswa aplikasi ini.');
+  const token = value.slice('UJIAN-ABSEN:'.length).trim();
+  if (!/^[A-Za-z0-9_-]{20,80}$/.test(token)) throw new Error('Token QR siswa tidak valid.');
+  return token;
+}
+
 function activeClassFromRows(rows, classId) {
   return rows.find((row, index) => index > 0 && norm(row[0]) === classId && norm(row[9]).toUpperCase() !== 'TIDAK');
 }
@@ -426,6 +434,109 @@ export async function adminGetStudentQrs(input = {}) {
   return { title: studentId ? selected[0].name : className, cards };
 }
 
+async function ensureAttendanceSheets() {
+  try {
+    return await Promise.all([
+      readRows(SHEETS.ABSENSI_SESI, { fresh: true }),
+      readRows(SHEETS.ABSENSI, { fresh: true })
+    ]);
+  } catch (e) {
+    const status = Number(e?.code || e?.status || e?.response?.status);
+    if ([400, 404].includes(status)) {
+      throw new Error('Tab ABSENSI_SESI dan ABSENSI belum tersedia. Jalankan kembali scripts/setup-sheet.mjs.');
+    }
+    throw e;
+  }
+}
+
+export function normalizeAttendanceSessionInput(input = {}) {
+  const classId = norm(input.classId);
+  const title = norm(input.title) || 'Absensi kelas';
+  if (!classId || classId.length > 80) throw new Error('Pilih kelas untuk sesi absensi.');
+  if (title.length > 120) throw new Error('Judul absensi terlalu panjang.');
+  return { classId, title };
+}
+
+export async function getAttendanceData() {
+  const [sessionRows, attendanceRows] = await Promise.all([
+    optionalRows(SHEETS.ABSENSI_SESI),
+    optionalRows(SHEETS.ABSENSI)
+  ]);
+  const records = attendanceRows.slice(1).filter(r => norm(r[0]) && norm(r[1]) && norm(r[2])).map(r => ({
+    id: norm(r[0]), sessionId: norm(r[1]), studentId: norm(r[2]), studentName: String(r[3] || ''),
+    classId: norm(r[4]), className: String(r[5] || ''), group: String(r[6] || ''),
+    timeMs: Number(r[7]) || 0, time: fmtEpoch(r[7]), status: norm(r[8]) || 'HADIR'
+  }));
+  const countBySession = new Map();
+  records.forEach(r => countBySession.set(r.sessionId, (countBySession.get(r.sessionId) || 0) + 1));
+  const sessions = sessionRows.slice(1).filter(r => norm(r[0]) && norm(r[1])).map(r => ({
+    id: norm(r[0]), classId: norm(r[1]), className: String(r[2] || ''), title: String(r[3] || ''),
+    openedMs: Number(r[4]) || 0, opened: fmtEpoch(r[4]), closed: r[5] ? fmtEpoch(r[5]) : '',
+    status: norm(r[6]).toUpperCase() || 'TUTUP', presentCount: countBySession.get(norm(r[0])) || 0
+  })).slice(-30).reverse();
+  return { sessions, records: records.slice(-80).reverse() };
+}
+
+export async function adminCreateAttendanceSession(input = {}) {
+  const data = normalizeAttendanceSessionInput(input);
+  const [[sessionRows], classRows] = await Promise.all([
+    ensureAttendanceSheets(),
+    readRows(SHEETS.KELAS, { fresh: true })
+  ]);
+  const target = activeClassFromRows(classRows, data.classId);
+  if (!target) throw new Error('Kelas tidak ditemukan atau tidak aktif.');
+  if (sessionRows.some((row, index) => index > 0 && norm(row[1]) === data.classId && norm(row[6]).toUpperCase() === 'BUKA')) {
+    throw new Error('Kelas ini masih memiliki sesi absensi yang terbuka. Tutup sesi tersebut terlebih dahulu.');
+  }
+  const now = nowMs();
+  const id = 'ABS-' + now + '-' + crypto.randomBytes(2).toString('hex').toUpperCase();
+  await appendRows(SHEETS.ABSENSI_SESI, [[id, data.classId, norm(target[1]), data.title, now, '', 'BUKA']]);
+  return { ...(await adminDashboard()), attendanceResult: { kind: 'SESSION_OPENED', sessionId: id } };
+}
+
+export async function adminCloseAttendanceSession(sessionId) {
+  const id = norm(sessionId);
+  if (!id) throw new Error('Sesi absensi tidak valid.');
+  const [rows] = await ensureAttendanceSheets();
+  const index = rows.findIndex((row, n) => n > 0 && norm(row[0]) === id);
+  if (index < 0) throw new Error('Sesi absensi tidak ditemukan.');
+  if (norm(rows[index][6]).toUpperCase() !== 'BUKA') throw new Error('Sesi absensi sudah ditutup.');
+  await writeCells(SHEETS.ABSENSI_SESI, `F${index + 1}:G${index + 1}`, [[nowMs(), 'TUTUP']]);
+  return { ...(await adminDashboard()), attendanceResult: { kind: 'SESSION_CLOSED', sessionId: id } };
+}
+
+export async function adminScanAttendanceQr(input = {}) {
+  const sessionId = norm(input.sessionId);
+  if (!sessionId) throw new Error('Pilih sesi absensi yang masih terbuka.');
+  const token = attendanceTokenFromPayload(input.payload);
+  const [[sessionRows, attendanceRows], studentRows] = await Promise.all([
+    ensureAttendanceSheets(),
+    readRows(SHEETS.SISWA, { fresh: true })
+  ]);
+  const session = sessionRows.find((row, n) => n > 0 && norm(row[0]) === sessionId);
+  if (!session) throw new Error('Sesi absensi tidak ditemukan.');
+  if (norm(session[6]).toUpperCase() !== 'BUKA') throw new Error('Sesi absensi sudah ditutup.');
+  const student = studentRows.find((row, n) => n > 0 && norm(row[7]) === token && isYa(row[5]));
+  if (!student) throw new Error('QR siswa tidak dikenali atau akun siswa tidak aktif.');
+  const classId = norm(session[1]);
+  if (!norm(student[6]) || norm(student[6]) !== classId) {
+    throw new Error('Siswa bukan anggota kelas ' + String(session[2] || '') + '.');
+  }
+  if (attendanceRows.some((row, n) => n > 0 && norm(row[1]) === sessionId && norm(row[2]) === norm(student[0]))) {
+    throw new Error(String(student[1] || student[0]) + ' sudah tercatat hadir pada sesi ini.');
+  }
+  const now = nowMs();
+  const attendanceId = 'HDR-' + now + '-' + crypto.randomBytes(2).toString('hex').toUpperCase();
+  await appendRows(SHEETS.ABSENSI, [[
+    attendanceId, sessionId, norm(student[0]), String(student[1] || ''), classId,
+    String(session[2] || student[2] || ''), String(student[3] || ''), now, 'HADIR'
+  ]]);
+  return {
+    ...(await adminDashboard()),
+    attendanceResult: { kind: 'PRESENT', sessionId, studentId: norm(student[0]), studentName: String(student[1] || '') }
+  };
+}
+
 export async function getClassHistory() {
   const rows = await optionalRows(SHEETS.RIWAYAT_KELAS);
   return rows.slice(1).filter(r => norm(r[0]) && norm(r[1])).slice(-30).reverse().map(r => ({
@@ -474,12 +585,14 @@ export async function adminAssignStudentClass(input = {}) {
 
 export async function adminDashboard() {
   await preload([SHEETS.UJIAN, SHEETS.SISWA, SHEETS.SESI]);
-  const [exams, students, attempts, classes, classHistory] = await Promise.all([getExams(), getStudents(), getAttempts(), getClasses(), getClassHistory()]);
+  const [exams, students, attempts, classes, classHistory, attendance] = await Promise.all([getExams(), getStudents(), getAttempts(), getClasses(), getClassHistory(), getAttendanceData()]);
   return {
     exams: exams.map(e => ({ id: e.id, title: e.title, status: e.status, duration: e.duration, start: fmtEpoch(e.start), end: fmtEpoch(e.end), showScore: e.showScore, sessionPin: e.sessionPin })),
     students: students.map(s => ({ id: s.id, name: s.name, kelas: s.kelas, kelompok: s.kelompok, classId: s.classId, active: s.active, hasQr: Boolean(s.qrToken) })),
     classes,
     classHistory,
+    attendanceSessions: attendance.sessions,
+    attendanceRecords: attendance.records,
     attempts: attempts.map(a => ({
       examId: a.examId, studentId: a.studentId, attemptId: a.attemptId, status: a.status,
       start: fmtEpoch(a.start), lastSaved: fmtEpoch(a.saved), submitted: fmtEpoch(a.submitted),

@@ -8,7 +8,9 @@ export const SHEETS = Object.freeze({
   SESI: 'SESI',
   LOGIN_LIMIT: 'LOGIN_LIMIT',
   KELAS: 'KELAS',
-  RIWAYAT_KELAS: 'RIWAYAT_KELAS'
+  RIWAYAT_KELAS: 'RIWAYAT_KELAS',
+  ABSENSI_SESI: 'ABSENSI_SESI',
+  ABSENSI: 'ABSENSI'
 });
 
 export const HEADERS = Object.freeze({
@@ -18,7 +20,9 @@ export const HEADERS = Object.freeze({
   SESI: ['AttemptID', 'UjianID', 'SiswaID', 'MulaiMs', 'DeadlineMs', 'Status', 'JawabanJSON', 'Revisi', 'TerakhirSimpanMs', 'DiserahkanMs', 'Nilai', 'NilaiMaks'],
   LOGIN_LIMIT: ['Key', 'Count', 'LastFailMs'],
   KELAS: ['KelasID', 'NamaKelas', 'Tingkat', 'ProgramKeahlian', 'TahunAjaran', 'Semester', 'KelompokBelajar', 'WaliKelas', 'GuruPengampu', 'Aktif'],
-  RIWAYAT_KELAS: ['RiwayatID', 'SiswaID', 'NamaSiswa', 'DariKelasID', 'DariKelas', 'KeKelasID', 'KeKelas', 'Kelompok', 'Jenis', 'WaktuMs']
+  RIWAYAT_KELAS: ['RiwayatID', 'SiswaID', 'NamaSiswa', 'DariKelasID', 'DariKelas', 'KeKelasID', 'KeKelas', 'Kelompok', 'Jenis', 'WaktuMs'],
+  ABSENSI_SESI: ['SesiAbsenID', 'KelasID', 'NamaKelas', 'Judul', 'DibukaMs', 'DitutupMs', 'Status'],
+  ABSENSI: ['AbsenID', 'SesiAbsenID', 'SiswaID', 'NamaSiswa', 'KelasID', 'NamaKelas', 'Kelompok', 'WaktuMs', 'Status']
 });
 
 function colLetter(n) {
