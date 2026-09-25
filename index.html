@@ -423,6 +423,9 @@
     .student-placement h3,.class-history h3,.student-manager h3{font-size:16px}.student-placement-row,.managed-student-row{border-radius:12px;border-color:#e3eaf4}.class-history-item{background:#f7f9fc;border-color:#e3eaf4}
     .student-identity strong,.managed-student-main strong{font-size:14px}.student-current,.student-identity span,.managed-student-main span{font-size:12px}
     @media(max-width:1200px){.student-placement-row{grid-template-columns:1fr 1fr}}@media(max-width:680px){.student-placement-row{grid-template-columns:1fr}}
+    .attendance-layout{display:grid;grid-template-columns:minmax(280px,.8fr) minmax(0,1.2fr);gap:18px}.attendance-panel{padding:22px}.attendance-panel h2,.attendance-panel h3{margin:0 0 5px}.attendance-form{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end;margin:18px 0}.attendance-form label,.attendance-scanner label{font-size:12px;font-weight:650}.attendance-form input,.attendance-form select,.attendance-scanner input,.attendance-scanner select{margin:5px 0 0}.attendance-session-list,.attendance-record-list{display:grid;gap:9px;margin-top:15px}.attendance-session,.attendance-record{display:flex;align-items:center;gap:12px;padding:13px 14px;border:1px solid #e3eaf4;border-radius:12px;background:#fff}.attendance-session.active{border-color:#86a9ed;box-shadow:inset 3px 0 0 #356ac3}.attendance-session-main,.attendance-record-main{flex:1;min-width:0}.attendance-session-main strong,.attendance-session-main span,.attendance-record-main strong,.attendance-record-main span{display:block}.attendance-session-main span,.attendance-record-main span{font-size:12px;color:var(--muted);margin-top:3px}.attendance-scanner{padding:18px;border:1px solid #d3e0f5;border-radius:14px;background:#f4f8ff}.attendance-scanner-grid{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}.attendance-camera{margin-top:14px;border-radius:14px;overflow:hidden;background:#101827;aspect-ratio:16/9;display:none;position:relative}.attendance-camera.active{display:block}.attendance-camera video{width:100%;height:100%;object-fit:cover}.attendance-camera:after{content:"Arahkan QR ke tengah kamera";position:absolute;left:50%;bottom:14px;transform:translateX(-50%);padding:7px 10px;border-radius:999px;background:#0f172acc;color:#fff;font-size:11px;white-space:nowrap}.attendance-feedback{margin-top:12px;padding:12px 14px;border-radius:11px;background:#fff;border:1px solid #dbe5f3;color:var(--muted);font-size:13px}.attendance-feedback.good{background:#edf9f4;border-color:#a8ddca;color:#176747}.attendance-feedback.bad{background:#fff2f1;border-color:#f1bbb7;color:#a1322a}.attendance-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:16px 0}.attendance-stat{padding:12px;border-radius:12px;background:#f7f9fc;border:1px solid #e3eaf4}.attendance-stat small,.attendance-stat strong{display:block}.attendance-stat small{font-size:11px;color:var(--muted)}.attendance-stat strong{font-size:21px}.attendance-empty{padding:24px 14px;text-align:center;border:1px dashed #c7d3e3;border-radius:12px;color:var(--muted);font-size:13px}.attendance-actions{display:flex;gap:7px;flex-wrap:wrap}.attendance-actions button{padding:8px 10px;font-size:11px}
+    @media(max-width:900px){.attendance-layout{grid-template-columns:1fr}.attendance-form{grid-template-columns:1fr 1fr}.attendance-form button{grid-column:1/-1}}
+    @media(max-width:680px){.attendance-panel{padding:18px}.attendance-form,.attendance-scanner-grid{grid-template-columns:1fr}.attendance-form button,.attendance-scanner-grid button{width:100%}.attendance-stats{gap:6px}.attendance-stat{padding:10px}.attendance-session,.attendance-record{align-items:flex-start;flex-wrap:wrap}.attendance-actions{width:100%}.attendance-actions button{flex:1}}
   </style>
 </head>
 <body>
@@ -460,7 +463,7 @@
 <script>
 'use strict';
 const el=id=>document.getElementById(id);
-const S={token:'',role:'S',exam:null,questions:[],answers:{},revision:0,lastSaved:0,dirty:false,attemptId:'',ticket:'',index:0,deadlineAt:0,lastSaveAt:0,imageCache:{},saving:null,submitting:false,saveTimer:null,timer:null,connection:navigator.onLine,heartbeatTimer:null,tabSwitches:0,lastHiddenAt:0,adminExamId:'',adminPage:'monitor',adminManagedClassId:''};
+const S={token:'',role:'S',exam:null,questions:[],answers:{},revision:0,lastSaved:0,dirty:false,attemptId:'',ticket:'',index:0,deadlineAt:0,lastSaveAt:0,imageCache:{},saving:null,submitting:false,saveTimer:null,timer:null,connection:navigator.onLine,heartbeatTimer:null,tabSwitches:0,lastHiddenAt:0,adminExamId:'',adminPage:'monitor',adminManagedClassId:'',adminAttendanceSessionId:''};
 /* Irama sinkronisasi ke server. Setiap penyimpanan memakai kuota tulis Google
    Sheets (60/menit untuk SELURUH kelas), jadi jawaban disimpan ke perangkat
    seketika dan dikirim ke server secara berkala saja.
@@ -485,6 +488,9 @@ const ENDPOINTS={
   adminAssignStudentClass:(token,input)=>['admin',{token,action:'assignStudentClass',...input}],
   adminCreateStudent:(token,input)=>['admin',{token,action:'createStudent',...input}],
   adminStudentQrs:(token,input)=>['admin',{token,action:'studentQrs',...input}],
+  adminCreateAttendanceSession:(token,input)=>['admin',{token,action:'createAttendanceSession',...input}],
+  adminCloseAttendanceSession:(token,sessionId)=>['admin',{token,action:'closeAttendanceSession',sessionId}],
+  adminScanAttendanceQr:(token,input)=>['admin',{token,action:'scanAttendanceQr',...input}],
   adminResetAttempt:(token,examId,studentId)=>['admin',{token,action:'resetAttempt',examId,studentId}],
   adminListQuestions:(token,examId)=>['admin',{token,action:'listQuestions',examId}],
   adminCreateQuestion:(token,input)=>['admin',{token,action:'createQuestion',...input}],
@@ -533,7 +539,7 @@ el('studentTab').onclick=()=>setRole('S');el('adminTab').onclick=()=>setRole('A'
 window.addEventListener('online',()=>{setConnectionStatus(true);if(S.exam&&S.dirty)setStatus('Koneksi kembali • jawaban akan disinkronkan otomatis.');});
 window.addEventListener('offline',()=>{setConnectionStatus(false);if(S.exam)setStatus('Offline • jawaban tetap disimpan di perangkat.');});
 el('loginForm').addEventListener('submit',async ev=>{ev.preventDefault();clearError();busy('loginBtn',true);try{const result=S.role==='S'?await call('loginSiswa',el('userId').value,el('password').value):await call('loginAdmin',el('password').value);S.token=result.token;sessionStorage.setItem('UJIAN_TOKEN',S.token);sessionStorage.setItem('UJIAN_ROLE',S.role);el('password').value='';S.role==='S'?renderStudent(result):renderAdmin(result);}catch(e){error(e);}finally{busy('loginBtn',false);}});
-async function logout(){if(S.exam && S.dirty && !S.submitting){try{await saveNow();}catch(e){error(e);return;}}if(S.timer)clearInterval(S.timer);stopHeartbeat();if(S.saveTimer)clearTimeout(S.saveTimer);if(S.token)call('logout',S.token).catch(()=>{});S.token='';S.exam=null;sessionStorage.removeItem('UJIAN_TOKEN');sessionStorage.removeItem('UJIAN_ROLE');view('loginView');}
+async function logout(){if(S.exam && S.dirty && !S.submitting){try{await saveNow();}catch(e){error(e);return;}}if(S.timer)clearInterval(S.timer);stopHeartbeat();stopAttendanceCamera();if(S.saveTimer)clearTimeout(S.saveTimer);if(S.token)call('logout',S.token).catch(()=>{});S.token='';S.exam=null;sessionStorage.removeItem('UJIAN_TOKEN');sessionStorage.removeItem('UJIAN_ROLE');view('loginView');}
 el('logout').onclick=logout;
 async function refreshStudent(){try{const d=await call('getDashboard',S.token);renderStudent(d);}catch(e){error(e);}}
 el('studentRefresh').onclick=refreshStudent;
@@ -567,9 +573,12 @@ function setupAdminNavigation(){
   const monitor=btn('Monitor Ujian',()=>setAdminPage('monitor'),'active');monitor.id='adminMonitorNav';
   const bank=btn('Kelola Bank Soal',openQuestionEditor,'');bank.id='adminBankNav';
   const classes=btn('Kelas',()=>setAdminPage('classes'),'');classes.id='adminClassesNav';
-  nav.append(monitor,bank,classes);heading.append(nav);
+  const attendance=btn('Absensi QR',()=>setAdminPage('attendance'),'');attendance.id='adminAttendanceNav';
+  nav.append(monitor,bank,classes,attendance);heading.append(nav);
   const classPage=document.createElement('section');classPage.id='adminClassPage';classPage.className='hidden';classPage.innerHTML='<div class="card table-card"><div class="class-page-heading"><div><h2>Daftar kelas</h2><p class="muted">Kelola informasi kelas untuk tahun ajaran berjalan.</p></div><button id="addClassButton" type="button">＋ Tambah kelas</button></div><div class="class-toolbar"><input id="classSearch" type="text" placeholder="Cari nama kelas, program, atau wali kelas…" aria-label="Cari kelas"><select id="classGrade"><option value="">Semua tingkat</option><option>X</option><option>XI</option><option>XII</option></select><select id="classYear"><option value="">Semua tahun ajaran</option></select></div><div class="class-stats"><div class="class-stat"><small>Total kelas</small><strong id="classTotal">0</strong></div><div class="class-stat"><small>Total siswa aktif</small><strong id="classStudents">0</strong></div><div class="class-stat"><small>Perlu dilengkapi</small><strong id="classNeedsInfo">0</strong></div></div><div id="classForm" class="class-form hidden"><h3 id="classFormTitle">Tambah kelas</h3><form id="newClassForm"><div class="class-form-grid"><label class="field">Tingkat kelas *<select id="newClassGrade" required><option value="">Pilih tingkat</option><option>X</option><option>XI</option><option>XII</option></select></label><label class="field">Program keahlian *<input id="newClassProgram" type="text" required maxlength="100" placeholder="Contoh: DKV atau ATR"></label><label class="field full-field">Nama kelas *<input id="newClassName" type="text" required maxlength="80" placeholder="Contoh: XI DKV"></label><label class="field">Tahun ajaran *<input id="newClassYear" type="text" required pattern="20[0-9]{2}/20[0-9]{2}" placeholder="2026/2027"></label><label class="field">Semester *<select id="newClassSemester" required><option>Ganjil</option><option>Genap</option></select></label><label class="field">Kelompok belajar<input id="newClassGroup" type="text" maxlength="80" placeholder="Contoh: Rombel 1"></label><label class="field">Wali kelas<input id="newClassHomeroom" type="text" maxlength="120" placeholder="Nama wali kelas"></label><label class="field full-field">Guru pengampu<input id="newClassTeachers" type="text" maxlength="300" placeholder="Nama guru, pisahkan dengan koma"></label></div><p class="class-status-note">Data siswa dan pembatasan ujian per kelas akan diatur terpisah. Siswa lama tetap dapat digunakan seperti biasa.</p><div class="flex"><button id="saveClassButton" type="submit">Simpan kelas</button><button id="cancelClassButton" class="secondary" type="button">Batal</button></div></form></div><div id="classCatalogList"></div><section class="student-placement"><div class="student-placement-head"><h3>Penempatan siswa</h3><p class="muted">Tempatkan siswa baru atau pindahkan siswa ke kelas dan kelompok yang dituju.</p></div><div class="placement-toolbar"><input id="studentPlacementSearch" type="text" placeholder="Cari nama atau ID siswa…" aria-label="Cari siswa"><select id="studentCurrentClassFilter"><option value="">Semua kelas saat ini</option></select></div><div id="studentPlacementList" class="student-placement-list"></div></section><section class="class-history"><h3>Riwayat perpindahan terbaru</h3><p class="muted">Catatan dibuat otomatis setiap kali kelas atau kelompok siswa diubah.</p><div id="classHistoryList" class="class-history-list"></div></section></div>';
   document.querySelector('#adminView').insertBefore(classPage,document.querySelector('#questionEditor'));
+  const attendancePage=document.createElement('section');attendancePage.id='adminAttendancePage';attendancePage.className='hidden';attendancePage.innerHTML='<div class="attendance-layout"><div class="card attendance-panel"><h2>Sesi absensi</h2><p class="muted">Buka satu sesi untuk kelas yang akan melakukan absensi.</p><form id="attendanceSessionForm" class="attendance-form"><label>Kelas *<select id="attendanceClass" required><option value="">Pilih kelas</option></select></label><label>Judul sesi<input id="attendanceTitle" maxlength="120" placeholder="Contoh: Apel pagi"></label><button id="openAttendanceButton" type="submit">Buka sesi</button></form><div id="attendanceStats" class="attendance-stats"></div><div id="attendanceSessionList" class="attendance-session-list"></div></div><div class="card attendance-panel"><h2>Pemindai QR</h2><p class="muted">Pilih sesi aktif, lalu pindai kartu QR siswa. Siswa dari kelas lain otomatis ditolak.</p><div class="attendance-scanner"><div class="attendance-scanner-grid"><label>Sesi aktif<select id="attendanceActiveSession"><option value="">Pilih sesi aktif</option></select></label><button id="attendanceCameraButton" class="secondary" type="button">Mulai kamera</button></div><div id="attendanceCamera" class="attendance-camera"><video id="attendanceVideo" playsinline muted></video></div><form id="attendanceManualForm" class="attendance-scanner-grid"><label>Hasil QR / pemindai eksternal<input id="attendancePayloadInput" autocomplete="off" placeholder="UJIAN-ABSEN:..."></label><button id="attendanceSubmitButton" type="submit">Catat hadir</button></form><div id="attendanceFeedback" class="attendance-feedback" role="status" aria-live="polite">Pilih sesi absensi yang masih terbuka.</div></div><h3 style="margin-top:22px">Kehadiran terbaru</h3><div id="attendanceRecordList" class="attendance-record-list"></div></div></div>';
+  document.querySelector('#adminView').insertBefore(attendancePage,document.querySelector('#questionEditor'));
   const studentManager=document.createElement('section');studentManager.id='studentManager';studentManager.className='student-manager hidden';studentManager.innerHTML='<div class="student-manager-head"><div><h3 id="managedClassName">Kelola siswa</h3><p id="managedClassMeta" class="muted"></p></div><div class="student-manager-actions"><button id="addStudentButton" type="button">＋ Tambah siswa</button><button id="printClassQrButton" class="secondary" type="button">▦ Cetak QR kelas</button><button id="closeStudentManager" class="ghost" type="button">Tutup</button></div></div><div id="studentCredential" class="student-credential hidden"><strong>Siswa berhasil dibuat</strong><span>PIN login hanya ditampilkan sekarang. Salin dan bagikan secara pribadi.</span><code id="studentCredentialPin"></code><div><button id="copyStudentCredential" class="secondary smallbtn" type="button">Salin ID & PIN</button></div></div><form id="studentCreateForm" class="student-create-form hidden"><div class="student-create-grid"><label>ID siswa *<input id="newStudentId" type="text" required maxlength="40" pattern="[A-Za-z0-9._-]{2,40}" placeholder="XI-DKV-001"></label><label>Nama lengkap *<input id="newStudentName" type="text" required maxlength="120" placeholder="Nama siswa"></label><label>Kelompok<input id="newStudentGroup" type="text" maxlength="80" placeholder="Contoh: 1"></label></div><p class="class-status-note">PIN 8 digit dan token QR dibuat otomatis. QR tidak berisi PIN login.</p><div class="flex"><button id="saveStudentButton" type="submit">Simpan siswa</button><button id="cancelStudentButton" class="secondary" type="button">Batal</button></div></form><div id="managedStudentList" class="managed-student-list"></div><p class="class-status-note">QR ini adalah identitas siswa. Modul absensi berikutnya tetap perlu sesi aktif dan verifikasi guru agar foto QR tidak langsung dianggap hadir.</p>';
   classPage.querySelector('.student-placement').before(studentManager);
   el('addClassButton').onclick=()=>{el('newClassForm').reset();const y=new Date().getFullYear();el('newClassYear').value=y+'/'+(y+1);el('classForm').classList.remove('hidden');el('newClassGrade').focus();};
@@ -587,6 +596,10 @@ function setupAdminNavigation(){
   el('copyStudentCredential').onclick=async()=>{const text=el('copyStudentCredential').dataset.copy||'';try{await navigator.clipboard.writeText(text);el('copyStudentCredential').textContent='Tersalin';}catch(e){prompt('Salin data login siswa:',text);}};
   el('studentCreateForm').addEventListener('submit',async ev=>{ev.preventDefault();const button=el('saveStudentButton');button.disabled=true;const classId=S.adminManagedClassId;try{const data=await call('adminCreateStudent',S.token,{studentId:el('newStudentId').value,name:el('newStudentName').value,group:el('newStudentGroup').value,classId});renderAdmin(data);setAdminPage('classes');openStudentManager(classId,false);el('studentCreateForm').classList.add('hidden');const credential='ID: '+data.createdStudent.id+'\nPIN: '+data.createdStudent.pin;el('studentCredentialPin').textContent=data.createdStudent.pin;el('copyStudentCredential').dataset.copy=credential;el('copyStudentCredential').textContent='Salin ID & PIN';el('studentCredential').classList.remove('hidden');}catch(e){error(e);}finally{button.disabled=false;}});
   el('newClassForm').addEventListener('submit',async ev=>{ev.preventDefault();const button=el('saveClassButton');button.disabled=true;const input={grade:el('newClassGrade').value,program:el('newClassProgram').value,name:el('newClassName').value,year:el('newClassYear').value,semester:el('newClassSemester').value,group:el('newClassGroup').value,homeroom:el('newClassHomeroom').value,teachers:el('newClassTeachers').value};try{const d=await call('adminCreateClass',S.token,input);renderAdmin(d);el('classForm').classList.add('hidden');}catch(e){error(e);}finally{button.disabled=false;}});
+  el('attendanceSessionForm').addEventListener('submit',async ev=>{ev.preventDefault();const button=el('openAttendanceButton');button.disabled=true;try{const data=await call('adminCreateAttendanceSession',S.token,{classId:el('attendanceClass').value,title:el('attendanceTitle').value});S.adminAttendanceSessionId=data.attendanceResult?.sessionId||'';el('attendanceSessionForm').reset();renderAdmin(data);setAdminPage('attendance');setAttendanceFeedback('Sesi absensi berhasil dibuka. Kamera siap digunakan.','good');}catch(e){error(e);setAttendanceFeedback((e&&e.message)||String(e),'bad');}finally{button.disabled=false;}});
+  el('attendanceActiveSession').addEventListener('change',()=>{S.adminAttendanceSessionId=el('attendanceActiveSession').value;renderAttendanceRecords(S.adminAttendanceRecords||[]);setAttendanceFeedback(S.adminAttendanceSessionId?'Sesi dipilih. Mulai kamera atau gunakan pemindai eksternal.':'Pilih sesi absensi yang masih terbuka.','');});
+  el('attendanceManualForm').addEventListener('submit',async ev=>{ev.preventDefault();await submitAttendancePayload(el('attendancePayloadInput').value);});
+  el('attendanceCameraButton').onclick=()=>attendanceStream?stopAttendanceCamera():startAttendanceCamera();
   const workspace=document.querySelector('#adminView .admin-workspace');if(workspace)workspace.id='adminMonitorPage';
   const sessionTable=document.querySelector('#adminExams')?.closest('table');if(sessionTable)sessionTable.classList.add('admin-session-table');
   const progressTable=document.querySelector('#adminAttempts')?.closest('table');if(progressTable)progressTable.classList.add('admin-progress-table');
@@ -594,16 +607,19 @@ function setupAdminNavigation(){
 }
 function setAdminPage(page){
   setupAdminNavigation();S.adminPage=page;
-  const T={monitor:['Monitoring ujian','Pantau sesi ujian dan progres siswa secara langsung.'],bank:['Bank soal','Tambah dan kelola soal untuk sesi yang dipilih.'],classes:['Kelas','Kelola kelas, wali kelas, dan jumlah siswa.']}[page];
+  const T={monitor:['Monitoring ujian','Pantau sesi ujian dan progres siswa secara langsung.'],bank:['Bank soal','Tambah dan kelola soal untuk sesi yang dipilih.'],classes:['Kelas','Kelola kelas, wali kelas, dan jumlah siswa.'],attendance:['Absensi QR','Buka sesi per kelas dan catat kehadiran melalui QR siswa.']}[page];
   const hh=document.querySelector('#adminView .admin-heading h1'),hp=document.querySelector('#adminView .admin-heading>p.muted');
   if(T&&hh)hh.textContent=T[0];if(T&&hp)hp.textContent=T[1];
-  const monitor=page==='monitor',bank=page==='bank',classes=page==='classes';
+  const monitor=page==='monitor',bank=page==='bank',classes=page==='classes',attendance=page==='attendance';
   el('adminMonitorPage')?.classList.toggle('hidden',!monitor);
   el('questionEditor')?.classList.toggle('hidden',!bank);
   el('adminClassPage')?.classList.toggle('hidden',!classes);
+  el('adminAttendancePage')?.classList.toggle('hidden',!attendance);
   el('adminMonitorNav')?.classList.toggle('active',monitor);
   el('adminBankNav')?.classList.toggle('active',bank);
   el('adminClassesNav')?.classList.toggle('active',classes);
+  el('adminAttendanceNav')?.classList.toggle('active',attendance);
+  if(!attendance)stopAttendanceCamera();
   if(!monitor)window.scrollTo({top:0,behavior:'smooth'});
 }
 function renderClassCatalog(data){
@@ -641,6 +657,59 @@ async function printStudentQrs(input){
     const cards=data.cards.map(card=>'<article><div class="qr">'+card.svg+'</div><h2>'+escapePrintText(card.name)+'</h2><p>'+escapePrintText(card.id)+'</p><p>'+escapePrintText(card.kelas)+(card.group?' · Kelompok '+escapePrintText(card.group):'')+'</p></article>').join('');
     preview.document.open();preview.document.write('<!doctype html><html lang="id"><head><meta charset="utf-8"><title>QR '+escapePrintText(data.title)+'</title><style>*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#111827;margin:24px}.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.toolbar h1{font-size:22px;margin:0}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}article{border:1px solid #cbd5e1;border-radius:12px;padding:14px;text-align:center;break-inside:avoid}.qr svg{width:170px;height:170px}h2{font-size:16px;margin:6px 0 3px}p{font-size:12px;margin:3px 0;color:#475569}button{border:0;border-radius:9px;padding:10px 16px;background:#087f73;color:white;font-weight:700}@media print{body{margin:8mm}.toolbar button{display:none}.grid{grid-template-columns:repeat(3,1fr);gap:8mm}article{border-color:#94a3b8}}</style></head><body><div class="toolbar"><h1>QR siswa · '+escapePrintText(data.title)+'</h1><button onclick="window.print()">Cetak</button></div><main class="grid">'+cards+'</main></body></html>');preview.document.close();
   }catch(e){preview.close();error(e);}
+}
+
+let attendanceStream=null,attendanceFrame=0,attendanceDetector=null,attendanceScanBusy=false,attendanceLastPayload='',attendanceLastAt=0;
+function setAttendanceFeedback(message,kind=''){
+  const out=el('attendanceFeedback');if(!out)return;out.textContent=message;out.className='attendance-feedback'+(kind?' '+kind:'');
+}
+function renderAttendance(sessions,records,classes){
+  if(!el('adminAttendancePage'))return;
+  S.adminAttendanceSessions=sessions||[];S.adminAttendanceRecords=records||[];
+  const catalog=(classes||[]).filter(c=>c.id&&c.active).sort((a,b)=>a.name.localeCompare(b.name,'id')||b.year.localeCompare(a.year));
+  const classSelect=el('attendanceClass'),selectedClass=classSelect.value;
+  classSelect.replaceChildren(new Option('Pilih kelas',''),...catalog.map(c=>new Option(c.name+(c.year?' · '+c.year:''),c.id)));
+  if(catalog.some(c=>c.id===selectedClass))classSelect.value=selectedClass;
+  const open=S.adminAttendanceSessions.filter(s=>s.status==='BUKA');
+  if(!open.some(s=>s.id===S.adminAttendanceSessionId))S.adminAttendanceSessionId=open[0]?.id||'';
+  const activeSelect=el('attendanceActiveSession');
+  activeSelect.replaceChildren(new Option('Pilih sesi aktif',''),...open.map(s=>new Option(s.title+' · '+s.className,s.id)));
+  activeSelect.value=S.adminAttendanceSessionId;
+  const chosen=S.adminAttendanceSessions.find(s=>s.id===S.adminAttendanceSessionId);
+  const stats=el('attendanceStats');stats.replaceChildren();
+  [['Sesi terbuka',open.length],['Riwayat sesi',S.adminAttendanceSessions.length],['Hadir'+(chosen?' sesi ini':''),chosen?.presentCount||0]].forEach(([label,value])=>{const box=node('div');box.className='attendance-stat';box.append(node('small',label),node('strong',String(value)));stats.append(box);});
+  const list=el('attendanceSessionList');list.replaceChildren();
+  if(!S.adminAttendanceSessions.length){const empty=node('div','Belum ada sesi absensi.');empty.className='attendance-empty';list.append(empty);}
+  else S.adminAttendanceSessions.forEach(session=>{const row=node('article');row.className='attendance-session'+(session.id===S.adminAttendanceSessionId?' active':'');const main=node('div');main.className='attendance-session-main';main.append(node('strong',session.title),node('span',session.className+' · '+session.presentCount+' hadir · '+niceTime(session.opened)));const actions=node('div');actions.className='attendance-actions';if(session.status==='BUKA'){actions.append(btn('Pindai',()=>{S.adminAttendanceSessionId=session.id;renderAttendance(S.adminAttendanceSessions,S.adminAttendanceRecords,S.adminClasses||[]);setAttendanceFeedback('Sesi '+session.className+' dipilih. Mulai kamera atau pindai QR.','');},'secondary'));actions.append(btn('Tutup',async()=>{if(!confirm('Tutup sesi absensi '+session.title+'? QR tidak dapat dicatat lagi setelah sesi ditutup.'))return;try{if(S.adminAttendanceSessionId===session.id)stopAttendanceCamera();const data=await call('adminCloseAttendanceSession',S.token,session.id);renderAdmin(data);setAdminPage('attendance');setAttendanceFeedback('Sesi absensi telah ditutup.','good');}catch(e){error(e);setAttendanceFeedback((e&&e.message)||String(e),'bad');}},'danger'));}else{const badgeNode=node('span','Ditutup');badgeNode.className='badge off';actions.append(badgeNode);}row.append(main,actions);list.append(row);});
+  renderAttendanceRecords(S.adminAttendanceRecords);
+}
+function renderAttendanceRecords(records){
+  const out=el('attendanceRecordList');if(!out)return;out.replaceChildren();
+  const selected=S.adminAttendanceSessionId,found=(records||[]).filter(r=>!selected||r.sessionId===selected).slice(0,30);
+  if(!found.length){const empty=node('div',selected?'Belum ada siswa yang tercatat pada sesi ini.':'Pilih sesi untuk melihat kehadiran.');empty.className='attendance-empty';out.append(empty);return;}
+  found.forEach(record=>{const row=node('article');row.className='attendance-record';const main=node('div');main.className='attendance-record-main';main.append(node('strong',record.studentName),node('span',record.studentId+' · '+record.className+(record.group?' · Kelompok '+record.group:'')));const time=node('time',niceTime(record.time));row.append(main,time);out.append(row);});
+}
+async function submitAttendancePayload(payload){
+  const value=String(payload||'').trim();if(!S.adminAttendanceSessionId){setAttendanceFeedback('Pilih sesi absensi yang masih terbuka.','bad');return false;}if(!value){setAttendanceFeedback('Pindai QR siswa atau isi hasil pemindai terlebih dahulu.','bad');return false;}if(attendanceScanBusy)return false;
+  attendanceScanBusy=true;el('attendanceSubmitButton').disabled=true;setAttendanceFeedback('Memeriksa QR dan mencatat kehadiran…','');
+  try{const data=await call('adminScanAttendanceQr',S.token,{sessionId:S.adminAttendanceSessionId,payload:value});const result=data.attendanceResult;renderAdmin(data);setAdminPage('attendance');el('attendancePayloadInput').value='';setAttendanceFeedback((result?.studentName||'Siswa')+' berhasil dicatat hadir.','good');return true;}catch(e){setAttendanceFeedback((e&&e.message)||String(e),'bad');return false;}finally{attendanceScanBusy=false;el('attendanceSubmitButton').disabled=false;}
+}
+async function startAttendanceCamera(){
+  if(!S.adminAttendanceSessionId){setAttendanceFeedback('Pilih sesi absensi sebelum menyalakan kamera.','bad');return;}
+  if(!navigator.mediaDevices?.getUserMedia){setAttendanceFeedback('Browser ini tidak menyediakan akses kamera. Gunakan Chrome/Edge terbaru atau pemindai QR eksternal.','bad');return;}
+  if(!('BarcodeDetector' in window)){setAttendanceFeedback('Pemindaian QR kamera belum didukung browser ini. Gunakan Chrome/Edge terbaru atau pemindai QR eksternal.','bad');return;}
+  try{attendanceDetector=new BarcodeDetector({formats:['qr_code']});attendanceStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});const video=el('attendanceVideo');video.srcObject=attendanceStream;await video.play();el('attendanceCamera').classList.add('active');el('attendanceCameraButton').textContent='Hentikan kamera';setAttendanceFeedback('Kamera aktif. Arahkan satu kartu QR ke tengah layar.','');attendanceFrame=requestAnimationFrame(scanAttendanceFrame);}catch(e){stopAttendanceCamera();setAttendanceFeedback('Kamera tidak dapat dibuka. Periksa izin kamera lalu coba lagi.','bad');}
+}
+async function scanAttendanceFrame(){
+  if(!attendanceStream)return;
+  const video=el('attendanceVideo');
+  if(video.readyState>=2&&!attendanceScanBusy){try{const codes=await attendanceDetector.detect(video);const value=codes[0]?.rawValue||'',now=Date.now();if(value&&(value!==attendanceLastPayload||now-attendanceLastAt>5000)){attendanceLastPayload=value;attendanceLastAt=now;await submitAttendancePayload(value);}}catch(e){/* bingkai berikutnya akan mencoba lagi */}}
+  if(attendanceStream)attendanceFrame=requestAnimationFrame(scanAttendanceFrame);
+}
+function stopAttendanceCamera(){
+  if(attendanceFrame)cancelAnimationFrame(attendanceFrame);attendanceFrame=0;
+  if(attendanceStream)attendanceStream.getTracks().forEach(track=>track.stop());attendanceStream=null;attendanceDetector=null;
+  const video=el('attendanceVideo');if(video)video.srcObject=null;el('attendanceCamera')?.classList.remove('active');if(el('attendanceCameraButton'))el('attendanceCameraButton').textContent='Mulai kamera';
 }
 
 function renderStudentPlacement(students,classes,history){
@@ -704,6 +773,7 @@ function renderAdmin(d){
   renderClassCatalog(d.classes||[]);
   renderStudentPlacement(d.students||[],d.classes||[],d.classHistory||[]);
   renderManagedClass(d.students||[],d.classes||[]);
+  renderAttendance(d.attendanceSessions||[],d.attendanceRecords||[],d.classes||[]);
   if(!d.exams.some(e=>e.id===S.adminExamId))S.adminExamId=d.exams[0]?.id||'';
   const selected=d.exams.find(e=>e.id===S.adminExamId);
   const exams=el('adminExams');exams.replaceChildren();

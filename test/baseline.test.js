@@ -58,6 +58,9 @@ test('admin UI keeps class, student, and QR endpoint bindings', async () => {
     'adminAssignStudentClass',
     'adminCreateStudent',
     'adminStudentQrs',
+    'adminCreateAttendanceSession',
+    'adminCloseAttendanceSession',
+    'adminScanAttendanceQr',
     'adminListQuestions',
     'adminResetAttempt'
   ]) {

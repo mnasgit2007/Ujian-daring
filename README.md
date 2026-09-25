@@ -329,4 +329,24 @@ PIN disimpan sebagai hash seperti sebelumnya. QR tidak memuat PIN atau kata sand
 node --env-file=.env scripts/setup-sheet.mjs
 ```
 
-QR pada tahap ini merupakan kartu identitas untuk modul absensi berikutnya; pemindaian dan pencatatan kehadiran belum diaktifkan. Implementasi absensi sebaiknya tetap memerlukan sesi yang dibuka guru dan batas waktu, sehingga foto QR saja tidak langsung dianggap hadir.
+QR merupakan kartu identitas siswa untuk modul absensi. Pemindaian hanya diterima ketika admin sudah membuka sesi absensi untuk kelas siswa tersebut.
+
+## Absensi QR per kelas
+
+Halaman **Absensi QR** pada panel guru menyediakan alur berikut:
+
+1. pilih kelas dan isi judul kegiatan;
+2. klik **Buka sesi**;
+3. pilih sesi aktif lalu klik **Mulai kamera**;
+4. arahkan kartu QR siswa ke kamera;
+5. periksa nama siswa pada daftar kehadiran, lalu tutup sesi setelah selesai.
+
+Sistem menolak QR yang tidak dikenal, siswa dari kelas lain, pemindaian kedua pada sesi yang sama, dan QR yang dipindai setelah sesi ditutup. Chrome atau Edge terbaru direkomendasikan untuk pemindaian kamera. Perangkat pemindai QR eksternal tetap dapat digunakan melalui kolom hasil QR.
+
+Setelah menarik pembaruan fitur ini, jalankan setup untuk membuat tab `ABSENSI_SESI` dan `ABSENSI`:
+
+```bash
+node --env-file=.env scripts/setup-sheet.mjs
+```
+
+Tab `ABSENSI_SESI` menyimpan kelas, judul, waktu buka/tutup, dan status sesi. Tab `ABSENSI` menyimpan siswa, kelas, kelompok, waktu hadir, dan status kehadiran. Setup tidak mengubah data ujian atau siswa yang sudah ada.
