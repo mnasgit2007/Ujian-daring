@@ -167,7 +167,17 @@ export function handler(fn) {
       let body = req.body || {};
       if (typeof body === 'string') body = JSON.parse(body || '{}');
       // Semua pembacaan sheet dalam satu permintaan berbagi satu cache.
-      const out = await withRequestCache(() => fn(body, req));
+      const out = await withRequestCache(async () => {
+        // Named teachers can be disabled without waiting for their token to expire.
+        if (body.token) {
+          const p = verifyToken(body.token);
+          if (p.role === 'A' && p.id) {
+            const teachers = await readRows(SHEETS.GURU, { fresh: true });
+            if (!teachers.slice(1).some(r => norm(r[0]) === p.id && norm(r[3]) === 'YA')) throw new Error('Akun guru tidak aktif.');
+          }
+        }
+        return fn(body, req);
+      });
       res.status(200).json(out === undefined ? { ok: true } : out);
     } catch (e) {
       console.error(e);
