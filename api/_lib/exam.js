@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import QRCode from 'qrcode';
+import { captureAttendanceRoster } from './learning.js';
 import { SHEETS, readRows, appendRows, writeCells, writeRanges, clearCells, preload, cellToEpoch, fmtEpoch, nowMs } from './store.js';
 import { norm, isYa, hashSiswa, signAttemptTicket, readAttemptTicket } from './auth.js';
 
@@ -468,13 +469,24 @@ export async function getAttendanceData() {
     timeMs: Number(r[7]) || 0, time: fmtEpoch(r[7]), status: norm(r[8]) || 'HADIR'
   }));
   const countBySession = new Map();
-  records.forEach(r => countBySession.set(r.sessionId, (countBySession.get(r.sessionId) || 0) + 1));
+  const detail = await optionalRows(SHEETS.ABSENSI_DETAIL);
+  const attendanceStudents = detail.length > 1 ? await getStudents() : [];
+  for (const row of detail.slice(1)) {
+    const existing = records.find(r => r.sessionId === norm(row[1]) && r.studentId === norm(row[2]));
+    if (existing) { existing.status = norm(row[3]); existing.timeMs = Number(row[6]); existing.time = fmtEpoch(row[6]); }
+    else if (norm(row[1]) && norm(row[2])) {
+      const student = attendanceStudents.find(s=>s.id===norm(row[2]));
+      const session = sessionRows.find(s=>norm(s[0])===norm(row[1]));
+      records.push({id:norm(row[0]),sessionId:norm(row[1]),studentId:norm(row[2]),studentName:student?.name||norm(row[2]),classId:norm(session?.[1]),className:norm(session?.[2]),group:student?.kelompok||'',status:norm(row[3]),timeMs:Number(row[6]),time:fmtEpoch(row[6])});
+    }
+  }
+  records.filter(r=>['HADIR','TERLAMBAT'].includes(r.status)).forEach(r => countBySession.set(r.sessionId, (countBySession.get(r.sessionId) || 0) + 1));
   const sessions = sessionRows.slice(1).filter(r => norm(r[0]) && norm(r[1])).map(r => ({
     id: norm(r[0]), classId: norm(r[1]), className: String(r[2] || ''), title: String(r[3] || ''),
     openedMs: Number(r[4]) || 0, opened: fmtEpoch(r[4]), closed: r[5] ? fmtEpoch(r[5]) : '',
     status: norm(r[6]).toUpperCase() || 'TUTUP', presentCount: countBySession.get(norm(r[0])) || 0
   })).slice(-30).reverse();
-  return { sessions, records: records.slice(-80).reverse() };
+  return { sessions, records: records.sort((a,b)=>b.timeMs-a.timeMs).slice(0,80) };
 }
 
 export async function adminCreateAttendanceSession(input = {}) {
@@ -491,6 +503,7 @@ export async function adminCreateAttendanceSession(input = {}) {
   const now = nowMs();
   const id = 'ABS-' + now + '-' + crypto.randomBytes(2).toString('hex').toUpperCase();
   await appendRows(SHEETS.ABSENSI_SESI, [[id, data.classId, norm(target[1]), data.title, now, '', 'BUKA']]);
+  await captureAttendanceRoster(id, data.classId);
   return { ...(await adminDashboard()), attendanceResult: { kind: 'SESSION_OPENED', sessionId: id } };
 }
 
@@ -525,6 +538,8 @@ export async function adminScanAttendanceQr(input = {}) {
   if (attendanceRows.some((row, n) => n > 0 && norm(row[1]) === sessionId && norm(row[2]) === norm(student[0]))) {
     throw new Error(String(student[1] || student[0]) + ' sudah tercatat hadir pada sesi ini.');
   }
+  const manual = await optionalRows(SHEETS.ABSENSI_DETAIL);
+  if (manual.some((row,n)=>n>0 && norm(row[1])===sessionId && norm(row[2])===norm(student[0]))) throw new Error('Siswa sudah memiliki catatan kehadiran. Guru dapat mengoreksinya di Rincian kehadiran.');
   const now = nowMs();
   const attendanceId = 'HDR-' + now + '-' + crypto.randomBytes(2).toString('hex').toUpperCase();
   await appendRows(SHEETS.ABSENSI, [[

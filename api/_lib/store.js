@@ -10,7 +10,14 @@ export const SHEETS = Object.freeze({
   KELAS: 'KELAS',
   RIWAYAT_KELAS: 'RIWAYAT_KELAS',
   ABSENSI_SESI: 'ABSENSI_SESI',
-  ABSENSI: 'ABSENSI'
+  ABSENSI: 'ABSENSI',
+  ABSENSI_PESERTA: 'ABSENSI_PESERTA',
+  ABSENSI_DETAIL: 'ABSENSI_DETAIL',
+  MATERI: 'MATERI',
+  TUGAS: 'TUGAS',
+  PENGUMPULAN: 'PENGUMPULAN',
+  PROFIL: 'PROFIL',
+  GURU: 'GURU'
 });
 
 export const HEADERS = Object.freeze({
@@ -22,6 +29,13 @@ export const HEADERS = Object.freeze({
   KELAS: ['KelasID', 'NamaKelas', 'Tingkat', 'ProgramKeahlian', 'TahunAjaran', 'Semester', 'KelompokBelajar', 'WaliKelas', 'GuruPengampu', 'Aktif'],
   RIWAYAT_KELAS: ['RiwayatID', 'SiswaID', 'NamaSiswa', 'DariKelasID', 'DariKelas', 'KeKelasID', 'KeKelas', 'Kelompok', 'Jenis', 'WaktuMs'],
   ABSENSI_SESI: ['SesiAbsenID', 'KelasID', 'NamaKelas', 'Judul', 'DibukaMs', 'DitutupMs', 'Status'],
+  ABSENSI_PESERTA: ['SesiID', 'SiswaID', 'Nama', 'KelasID', 'Kelompok'],
+  ABSENSI_DETAIL: ['CatatanID', 'SesiID', 'SiswaID', 'Status', 'Catatan', 'Pencatat', 'WaktuMs'],
+  MATERI: ['MateriID', 'KelasID', 'Judul', 'Topik', 'Isi', 'Tautan', 'Status', 'GuruID', 'WaktuMs'],
+  TUGAS: ['TugasID', 'KelasID', 'Judul', 'Instruksi', 'BatasMs', 'IzinkanTerlambat', 'Status', 'GuruID', 'WaktuMs'],
+  PENGUMPULAN: ['KirimID', 'TugasID', 'SiswaID', 'NamaSiswa', 'Catatan', 'BerkasJSON', 'WaktuMs', 'Terlambat', 'Nilai', 'UmpanBalik', 'Penilai', 'DinilaiMs', 'RequestID'],
+  PROFIL: ['Kunci', 'NamaTampilan', 'Email', 'Telepon', 'Tentang', 'Mapel', 'WaktuMs'],
+  GURU: ['GuruID', 'Nama', 'PasswordHash', 'Aktif'],
   ABSENSI: ['AbsenID', 'SesiAbsenID', 'SiswaID', 'NamaSiswa', 'KelasID', 'NamaKelas', 'Kelompok', 'WaktuMs', 'Status']
 });
 

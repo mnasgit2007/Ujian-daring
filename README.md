@@ -350,3 +350,17 @@ node --env-file=.env scripts/setup-sheet.mjs
 ```
 
 Tab `ABSENSI_SESI` menyimpan kelas, judul, waktu buka/tutup, dan status sesi. Tab `ABSENSI` menyimpan siswa, kelas, kelompok, waktu hadir, dan status kehadiran. Setup tidak mengubah data ujian atau siswa yang sudah ada.
+
+## Portal pembelajaran: kehadiran, materi, tugas, dan profil
+
+Dashboard siswa kini menyediakan rincian hadir/terlambat/izin/sakit/alpa, materi per kelas,
+tugas dengan pengumpulan foto/PDF, nilai/umpan balik, dan profil sendiri. Guru mengelola
+publikasi konten, koreksi kehadiran, pemeriksaan pengumpulan, serta profil guru terpisah.
+
+**Aktivasi diperlukan sebelum digunakan:** jalankan setup-sheet untuk tujuh tab tambahan,
+siapkan folder Drive privat untuk pengumpulan, dan uji preview. Lihat
+[langkah aktivasi dan pengujian](docs/AKTIVASI_PEMBELAJARAN.md).
+
+Unggahan maksimal 5 berkas dengan total 2 MB sesudah foto diperkecil. Materi menerima
+teks dan tautan HTTPS. Akun guru bernama memiliki hak pengelolaan admin yang sama;
+pembatasan per guru/mapel belum diterapkan. Fitur ujian lama tetap tersedia.
