@@ -427,6 +427,7 @@
     @media(max-width:900px){.attendance-layout{grid-template-columns:1fr}.attendance-form{grid-template-columns:1fr 1fr}.attendance-form button{grid-column:1/-1}}
     @media(max-width:680px){.attendance-panel{padding:18px}.attendance-form,.attendance-scanner-grid{grid-template-columns:1fr}.attendance-form button,.attendance-scanner-grid button{width:100%}.attendance-stats{gap:6px}.attendance-stat{padding:10px}.attendance-session,.attendance-record{align-items:flex-start;flex-wrap:wrap}.attendance-actions{width:100%}.attendance-actions button{flex:1}}
   </style>
+  <link rel="stylesheet" href="/reference-ui.css">
 </head>
 <body>
 <header class="site-header"><div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v15M3 4c3-1 6-1 9 1 3-2 6-2 9-1v15c-3-1-6-1-9 1-3-2-6-2-9-1z"/></svg></span><div><strong>UJIAN DARING</strong><small>SMKN 1 Manggelewa</small></div></div><div class="flex"><span id="connectionStatus" class="connection-status" role="status" aria-live="polite">Terhubung</span><button id="logout" class="ghost hidden" type="button">Keluar</button></div></header>
@@ -461,6 +462,7 @@
   <footer class="site-footer">SMKN 1 Manggelewa · Belajar, berpikir, bertanggung jawab</footer>
 </main>
 <script src="/vendor/jsQR.js"></script>
+<script src="/reference-ui.js"></script>
 <script>
 'use strict';
 const el=id=>document.getElementById(id);
@@ -544,7 +546,7 @@ async function logout(){if(S.exam && S.dirty && !S.submitting){try{await saveNow
 el('logout').onclick=logout;
 async function refreshStudent(){try{const d=await call('getDashboard',S.token);renderStudent(d);}catch(e){error(e);}}
 el('studentRefresh').onclick=refreshStudent;
-function renderStudent(d){S.exam=null;view('studentView');el('hello').textContent='Halo, '+d.student.name;el('studentInfo').textContent=[d.student.id,d.student.kelas,'Kelompok '+d.student.kelompok].join(' • ');const out=el('examList');out.replaceChildren();if(!d.exams.length){out.append(node('p','Belum ada ujian yang dibuka guru.'));return;}d.exams.forEach(x=>{const c=node('div');c.className='card';c.append(badge(x.state),node('h3',x.title),node('p','ID: '+x.id+' • '+x.duration+' menit'),node('p','Mulai: '+x.start+'\nSelesai: '+x.end));if(x.sessionPinRequired)c.append(node('p','Ujian ini memerlukan PIN sesi dari guru.'));if(x.score!==null)c.append(node('p','Nilai: '+scoreText(x.score,x.maxScore)));if(['TERSEDIA','LANJUTKAN'].includes(x.state)){const b=btn(x.state==='LANJUTKAN'?'Lanjutkan ujian':'Mulai ujian',()=>{const pin=x.sessionPinRequired?prompt('Masukkan PIN sesi ujian dari guru:'):'';if(x.sessionPinRequired&&pin===null)return;start(x.id,pin||'');},'');c.append(b);}out.append(c);});}
+function renderStudent(d){window.ReferenceUI?.student(d);S.exam=null;view('studentView');el('hello').textContent='Halo, '+d.student.name;el('studentInfo').textContent=[d.student.id,d.student.kelas,'Kelompok '+d.student.kelompok].join(' • ');const out=el('examList');out.replaceChildren();if(!d.exams.length){out.append(node('p','Belum ada ujian yang dibuka guru.'));return;}d.exams.forEach(x=>{const c=node('div');c.className='card';c.append(badge(x.state),node('h3',x.title),node('p','ID: '+x.id+' • '+x.duration+' menit'),node('p','Mulai: '+x.start+'\nSelesai: '+x.end));if(x.sessionPinRequired)c.append(node('p','Ujian ini memerlukan PIN sesi dari guru.'));if(x.score!==null)c.append(node('p','Nilai: '+scoreText(x.score,x.maxScore)));if(['TERSEDIA','LANJUTKAN'].includes(x.state)){const b=btn(x.state==='LANJUTKAN'?'Lanjutkan ujian':'Mulai ujian',()=>{const pin=x.sessionPinRequired?prompt('Masukkan PIN sesi ujian dari guru:'):'';if(x.sessionPinRequired&&pin===null)return;start(x.id,pin||'');},'');c.append(b);}out.append(c);});}
 async function start(id,sessionPin=''){clearError();try{const result=await call('startUjian',S.token,id,sessionPin);if(result.done){showResult(result);return;}S.exam=result.exam;S.attemptId=result.attemptId;S.ticket=result.ticket||'';S.lastSaveAt=Date.now();S.questions=result.questions;S.answers=result.answers||{};S.revision=result.revision||0;S.lastSaved=S.revision;S.index=0;S.dirty=false;S.imageCache={};S.submitting=false;S.tabSwitches=0;S.lastHiddenAt=0;clearFocusStatus();
   try{const local=JSON.parse(localStorage.getItem(localKey())||'null');if(local && Number.isInteger(local.revision) && local.revision>S.revision && local.answers && typeof local.answers==='object' && !Array.isArray(local.answers)){S.answers=local.answers;S.revision=local.revision;S.dirty=true;}}catch(e){}
   S.deadlineAt=Date.now()+Math.max(0,parseLocal(result.exam.deadline)-parseLocal(result.exam.serverNow));view('examView');el('examTitle').textContent=result.exam.title;renderQuestion();setStatus(S.dirty?'Jawaban lokal ditemukan; sedang sinkronisasi…':'Jawaban dari server sudah dimuat.');if(S.timer)clearInterval(S.timer);S.timer=setInterval(tick,1000);tick();startHeartbeat();if(S.dirty)saveNow().catch(error);
@@ -769,6 +771,7 @@ el('questionCancel').onclick=resetQuestionForm;
 el('questionForm').addEventListener('submit',async ev=>{ev.preventDefault();const input=readQuestionForm();const button=el('questionSave');button.disabled=true;try{const data=questionEditId?await call('adminUpdateQuestion',S.token,input):await call('adminCreateQuestion',S.token,input);resetQuestionForm();renderQuestionRows(data);}catch(e){error(e);}finally{button.disabled=false;}});
 function selectAdminExam(examId,d){S.adminExamId=examId;questionEditorVisible(false);renderAdmin(d);}
 function renderAdmin(d){
+  window.ReferenceUI?.admin(d);
   view('adminView');
   setupAdminNavigation();
   setAdminPage(S.adminPage||'monitor');
