@@ -1,4 +1,5 @@
 node_modules/
+qa-output/
 .env
 .env.*
 !.env.example

@@ -140,7 +140,17 @@ Gunakan dua siswa uji dari kelas berbeda dan satu akun guru:
 7. Simpan profil dan foto pada dua akun; pastikan identitas tidak tertukar. Periksa nama panjang, data kosong, dan koneksi yang terputus.
 8. Bandingkan dashboard dengan data Spreadsheet uji. Periksa tanggal/jam WITA dan filter kelas/periode.
 
-Pengujian otomatis menggunakan fixture lokal, bukan kredensial atau database sekolah. Uji browser dan koneksi Sheets/Drive nyata diperlukan sebelum persetujuan merge.
+Pengujian otomatis menggunakan fixture, bukan kredensial atau database sekolah. Workflow **Portal QA** menjalankan 52 pengujian Node dan uji Chromium pada akun siswa/admin dengan lebar 1440 px serta 390 px. Uji browser meliputi navigasi, simpan profil, kalender, jadwal, pembukaan absensi, peserta ujian, tab kelas, dan pemeriksaan lebar halaman. Screenshot dan laporan disimpan sebagai artifact `portal-browser-qa` di GitHub Actions selama tujuh hari. Semua skenario tersebut telah lulus; uji penerimaan dengan koneksi Sheets/Drive dan akun uji nyata tetap diperlukan sebelum persetujuan merge.
+
+Untuk menjalankan uji browser yang sama di komputer pengembang, gunakan dependency QA sementara (tidak menambah dependency aplikasi):
+
+```powershell
+npm.cmd install --no-save --package-lock=false playwright@1.58.2
+npx.cmd playwright install chromium
+node scripts/qa/portal-smoke.mjs
+```
+
+Laporan dan screenshot berada di folder `qa-output`, yang diabaikan Git. Tes memakai server lokal dan respons API tiruan; tidak membaca `.env` atau mengirim data ke Spreadsheet.
 
 ## 9. Production setelah disetujui
 
