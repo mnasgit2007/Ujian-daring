@@ -1,5 +1,7 @@
 # UJIAN DARING DKV XI (versi Vercel)
 
+Pembaruan dashboard dan jadwal mengajar: baca [panduan aktivasi Preview, peserta ujian, kalender, dan foto profil](docs/AKTIVASI_DASHBOARD_JADWAL.md). Pembaruan ini menambahkan empat tab melalui skrip setup dan tidak memerlukan secret baru.
+
 Porting dari paket Google Apps Script (`PANDUAN_INSTALASI.md` v1.0) ke Vercel. Tampilan,
 alur ujian, aturan penilaian, dan format sheet **tidak berubah** — yang diganti hanya "mesin"
 di belakangnya.

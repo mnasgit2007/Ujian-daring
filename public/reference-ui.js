@@ -13,6 +13,7 @@
   document.querySelector('#adminView .admin-heading').insertAdjacentHTML('afterend', `<div class="admin-overview"><div class="overview-copy"><span class="eyebrow">SMKN 1 Manggelewa</span><h2>Selamat datang, Bapak / Ibu Guru</h2><p>Ruang kendali kelas, ujian, dan kehadiran siswa.</p></div><div class="overview-metrics"><article><span>Siswa aktif</span><strong id="uiActiveStudents">0</strong></article><article><span>Kelas aktif</span><strong id="uiActiveClasses">0</strong></article><article><span>Ujian dibuka</span><strong id="uiOpenExams">0</strong></article><article><span>Sesi absensi terbuka</span><strong id="uiOpenAttendance">0</strong></article></div></div>`);
   window.ReferenceUI = {
     student(data) {
+      window.PortalUI?.core('S',data);
       const exams = data.exams || [];
       const done = exams.filter(exam => ['SELESAI', 'WAKTU_HABIS'].includes(exam.state)).length;
       const percent = exams.length ? Math.round(done / exams.length * 100) : 0;

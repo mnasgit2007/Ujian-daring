@@ -429,6 +429,7 @@
   </style>
   <link rel="stylesheet" href="/reference-ui.css">
   <link rel="stylesheet" href="/learning-ui.css">
+  <link rel="stylesheet" href="/portal-ui.css">
 </head>
 <body>
 <header class="site-header"><div class="brand"><span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v15M3 4c3-1 6-1 9 1 3-2 6-2 9-1v15c-3-1-6-1-9 1-3-2-6-2-9-1z"/></svg></span><div><strong>UJIAN DARING</strong><small>SMKN 1 Manggelewa</small></div></div><div class="flex"><span id="connectionStatus" class="connection-status" role="status" aria-live="polite">Terhubung</span><button id="logout" class="ghost hidden" type="button">Keluar</button></div></header>
@@ -465,6 +466,7 @@
 <script src="/vendor/jsQR.js"></script>
 <script src="/reference-ui.js"></script>
 <script src="/learning-ui.js"></script>
+<script src="/portal-ui.js"></script>
 <script>
 'use strict';
 const el=id=>document.getElementById(id);
@@ -611,6 +613,7 @@ function setupAdminNavigation(){
   const questionTable=document.querySelector('#questionRows')?.closest('table');if(questionTable)questionTable.classList.add('question-table');
 }
 function setAdminPage(page){
+  window.PortalUI?.adminPage(page);
   setupAdminNavigation();S.adminPage=page;window.LearningUI?.syncAdmin(page);
   const T={monitor:['Monitoring ujian','Pantau sesi ujian dan progres siswa secara langsung.'],bank:['Bank soal','Tambah dan kelola soal untuk sesi yang dipilih.'],classes:['Kelas','Kelola kelas, wali kelas, dan jumlah siswa.'],attendance:['Absensi QR','Buka sesi per kelas dan catat kehadiran melalui QR siswa.']}[page];
   const hh=document.querySelector('#adminView .admin-heading h1'),hp=document.querySelector('#adminView .admin-heading>p.muted');
@@ -773,6 +776,7 @@ el('questionCancel').onclick=resetQuestionForm;
 el('questionForm').addEventListener('submit',async ev=>{ev.preventDefault();const input=readQuestionForm();const button=el('questionSave');button.disabled=true;try{const data=questionEditId?await call('adminUpdateQuestion',S.token,input):await call('adminCreateQuestion',S.token,input);resetQuestionForm();renderQuestionRows(data);}catch(e){error(e);}finally{button.disabled=false;}});
 function selectAdminExam(examId,d){S.adminExamId=examId;questionEditorVisible(false);renderAdmin(d);}
 function renderAdmin(d){
+  window.PortalUI?.core('A',d);
   window.ReferenceUI?.admin(d);
   view('adminView');
   setupAdminNavigation();
@@ -782,6 +786,7 @@ function renderAdmin(d){
   renderClassCatalog(d.classes||[]);
   renderStudentPlacement(d.students||[],d.classes||[],d.classHistory||[]);
   renderManagedClass(d.students||[],d.classes||[]);
+  window.PortalUI?.classTabs();
   renderAttendance(d.attendanceSessions||[],d.attendanceRecords||[],d.classes||[]);
   if(!d.exams.some(e=>e.id===S.adminExamId))S.adminExamId=d.exams[0]?.id||'';
   const selected=d.exams.find(e=>e.id===S.adminExamId);
@@ -807,11 +812,11 @@ function renderAdmin(d){
   selectedBox.replaceChildren();
   if(selected){selectedBox.append(node('strong',selected.title+' ('+selected.id+')'));selectedBox.append(node('span',selected.status+' · '+selected.duration+' menit · PIN '+(selected.sessionPin||'tidak digunakan')));}
   const students={};d.students.forEach(s=>students[s.id]=s);
-  const sessionAttempts=d.attempts.filter(a=>a.examId===S.adminExamId);
+  const sessionAttempts=[...new Map(d.attempts.filter(a=>a.examId===S.adminExamId&&a.status!=='RESET').map(a=>[a.studentId,a])).values()];
   const tbody=el('adminAttempts');tbody.replaceChildren();
   const done=sessionAttempts.filter(a=>['SELESAI','WAKTU_HABIS'].includes(a.status));
   const sum=el('adminSummary');sum.replaceChildren();
-  if(selected){[['Terdaftar',d.students.length],['Mengerjakan',sessionAttempts.filter(a=>a.status==='SEDANG').length],['Selesai',done.length]].forEach(([l,v])=>{const c=node('div');c.className='stat';c.append(node('small',l),node('strong',v));sum.append(c);});}else sum.textContent='Pilih sesi untuk melihat progres.';
+  if(selected){const roster=d.examRosters?.[selected.id];const counts=roster?[['Peserta terdaftar',roster.studentIds.length],['Belum mulai',roster.studentIds.filter(id=>!sessionAttempts.some(a=>a.studentId===id)).length]]:[['Pernah mulai',sessionAttempts.length]];counts.push(['Mengerjakan',sessionAttempts.filter(a=>a.status==='SEDANG').length],['Selesai',done.length]);counts.forEach(([l,v])=>{const c=node('div');c.className='stat';c.append(node('small',l),node('strong',v));sum.append(c);});window.PortalUI?.rosterEditor(selected,d);}else {window.PortalUI?.clearRoster();sum.textContent='Pilih sesi untuk melihat progres.';}
   if(!selected||!sessionAttempts.length){const row=node('tr'),cell=node('td',selected?(selected.status==='BUKA'?'Menunggu siswa bergabung ke sesi ini.':'Belum ada peserta. Buka sesi agar siswa bisa masuk.'):'Belum ada sesi ujian.');cell.colSpan=5;cell.className='admin-empty';row.append(cell);tbody.append(row);return;}
   sessionAttempts.slice().reverse().forEach(a=>{
     const tr=node('tr');const s=students[a.studentId];tr.append(labeled('td',s?s.name+' ('+a.studentId+')':a.studentId,'Siswa'));

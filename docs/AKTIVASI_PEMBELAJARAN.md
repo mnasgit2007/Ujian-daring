@@ -1,6 +1,6 @@
 # Aktivasi kehadiran, materi, tugas, dan profil
 
-Fitur ini berada di PR #26, belum di-merge. Pengujian otomatis memakai database dan Drive tiruan; koneksi Google produksi harus diuji setelah konfigurasi. Ujian lama tetap menggunakan alur yang sama.
+Fitur dasar ini berasal dari PR #26 yang sudah di-merge. Pengujian otomatis memakai database dan Drive tiruan; koneksi Google produksi harus diuji setelah konfigurasi. Untuk pembaruan dashboard, peserta ujian, foto profil, dan jadwal mengajar, ikuti [panduan aktivasi dashboard dan jadwal](AKTIVASI_DASHBOARD_JADWAL.md).
 
 ## 1. Perbarui branch lokal dan siapkan Google Sheets
 
