@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 import QRCode from 'qrcode';
 import { captureAttendanceRoster } from './learning.js';
+import { eligibleForExam, latestRosters, optionalAcademicRows } from './academic.js';
+import * as academicStore from './store.js';
 import { SHEETS, readRows, appendRows, writeCells, writeRanges, clearCells, preload, cellToEpoch, fmtEpoch, nowMs } from './store.js';
 import { norm, isYa, hashSiswa, signAttemptTicket, readAttemptTicket } from './auth.js';
 
@@ -222,8 +224,9 @@ export async function dashboardSiswa(id) {
   const attempts = (await getAttempts()).filter(a => a.studentId === id && a.status !== 'RESET');
   const byExam = {};
   attempts.forEach(a => { byExam[a.examId] = a; });
+  const rosters=latestRosters(await optionalAcademicRows(academicStore,'PESERTA_UJIAN'));
   const now = nowMs();
-  const list = exams.filter(e => e.status === 'BUKA' || byExam[e.id]).map(e => {
+  const list = exams.filter(e => byExam[e.id] || rosters[e.id]?.studentIds.includes(id) || (e.status === 'BUKA' && eligibleForExam(rosters,e.id,id))).map(e => {
     const a = byExam[e.id];
     let state = now < e.start ? 'BELUM_DIMULAI' : now > e.end ? 'BERAKHIR' : 'TERSEDIA';
     if (e.status !== 'BUKA' && !a) state = 'DITUTUP';
@@ -231,6 +234,8 @@ export async function dashboardSiswa(id) {
     return {
       id: e.id, title: e.title, duration: e.duration, start: fmtEpoch(e.start), end: fmtEpoch(e.end), state,
       sessionPinRequired: Boolean(e.sessionPin),
+      assigned: Boolean(rosters[e.id]?.studentIds.includes(id)),
+      submittedMs: a?.submitted || null,
       score: a && a.status !== 'SEDANG' && e.showScore ? a.score : null,
       maxScore: a && a.status !== 'SEDANG' && e.showScore ? a.maxScore : null
     };
@@ -601,7 +606,9 @@ export async function adminAssignStudentClass(input = {}) {
 export async function adminDashboard() {
   await preload([SHEETS.UJIAN, SHEETS.SISWA, SHEETS.SESI]);
   const [exams, students, attempts, classes, classHistory, attendance] = await Promise.all([getExams(), getStudents(), getAttempts(), getClasses(), getClassHistory(), getAttendanceData()]);
+  const examRosters=latestRosters(await optionalAcademicRows(academicStore,'PESERTA_UJIAN'));
   return {
+    examRosters,
     exams: exams.map(e => ({ id: e.id, title: e.title, status: e.status, duration: e.duration, start: fmtEpoch(e.start), end: fmtEpoch(e.end), showScore: e.showScore, sessionPin: e.sessionPin })),
     students: students.map(s => ({ id: s.id, name: s.name, kelas: s.kelas, kelompok: s.kelompok, classId: s.classId, active: s.active, hasQr: Boolean(s.qrToken) })),
     classes,
@@ -665,6 +672,8 @@ export async function startUjian(studentId, examId, sessionPin = '') {
       current = await finishAttempt(current, questions, true);
     }
   } else {
+    const rosters=latestRosters(await optionalAcademicRows(academicStore,'PESERTA_UJIAN'));
+    if(!eligibleForExam(rosters,String(examId),studentId))throw new Error('Anda bukan peserta ujian ini.');
     if (exam.status !== 'BUKA' || now < exam.start || now > exam.end) throw new Error('Ujian belum dibuka atau sudah berakhir.');
     const start = now, deadline = Math.min(now + exam.duration * 60000, exam.end);
     const attemptId = cryptoRandomId();

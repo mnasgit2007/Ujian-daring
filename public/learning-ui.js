@@ -2,7 +2,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   const labels = {HADIR:'Hadir',TERLAMBAT:'Terlambat',IZIN:'Izin',SAKIT:'Sakit',ALPA:'Alpa',BELUM_DICATAT:'Belum dicatat'};
-  const pages = {attendance:'Kehadiran',materials:'Materi',tasks:'Tugas',profile:'Profil saya'};
+  const pages = {dashboard:'Dashboard',schedule:'Jadwal & kalender',attendance:'Kehadiran',materials:'Materi',tasks:'Tugas',profile:'Profil saya'};
   let data=null,role='',current={S:'home',A:'home'},generation=0,loading=false,submitKey='',queuedRefresh=false;
   const esc = value => String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const date = ms => Number(ms)?new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Makassar',dateStyle:'medium',timeStyle:'short'}).format(new Date(Number(ms))):'—';
@@ -49,7 +49,7 @@
     try {
       const result=await api('dashboard');
       if(id!==generation||S.token!==token||role!==requestRole)return;
-      data=result;homeSummary();if(current[role]!=='home')render();
+      data=result;homeSummary();if(current[role]!=='home')render();window.PortalUI?.refresh(data,role);
     } catch(e) {
       if(S.token!==token||role!==requestRole)return;
       if(current[role]!=='home'){panel().replaceChildren();notice(e.message,true);}
@@ -57,6 +57,7 @@
     } finally {loading=false;if(queuedRefresh){queuedRefresh=false;load();}}
   }
   function show(page) {
+    window.PortalUI?.page(page);
     current[role]=page;notice('');
     if(role==='A')setAdminPage('learning');
     else {
@@ -78,16 +79,19 @@
       shell.innerHTML=`<div class="flex between"><div><span class="eyebrow">Ruang pembelajaran</span><h2 id="lpTitle${role}">Pembelajaran</h2></div><button id="lpReload${role}" type="button" class="secondary">Muat ulang</button></div><div id="lpNotice${role}" class="lp-notice" role="status" aria-live="polite" hidden></div><div id="lpPanel${role}"></div>`;
       $(role==='S'?'studentView':'adminView').append(shell);$('lpReload'+role).onclick=()=>{notice('');load();};
       const nav=role==='S'?document.querySelector('.student-rail nav'):$('adminNav');
-      for(const [key,label] of Object.entries(pages)) {const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.lpPage=key;b.dataset.lpRole=role;b.onclick=()=>show(key);nav.append(b);}
+      for(const [key,label] of Object.entries(pages)) {const b=document.createElement('button');b.type='button';b.textContent=label;b.dataset.lpPage=key;b.dataset.lpRole=role;b.onclick=()=>show(key);if(key==='dashboard')nav.prepend(b);else nav.append(b);}
       if(role==='S') {
         const box=document.createElement('section');box.id='lpHomeSummary';box.className='card lp-home-summary';box.hidden=true;document.querySelector('#studentView .student-summary').after(box);
+        document.querySelector('.student-rail a[href="#studentView"]')?.remove();
         document.querySelectorAll('.student-rail a').forEach(a=>a.addEventListener('click',()=>show('home')));
       }
     }
-    if(role==='A'&&S.adminPage==='learning')show(current.A==='home'?'attendance':current.A);
-    load();
+    if(changed)show('dashboard');
+    else if(role==='A'&&S.adminPage==='learning')show(current.A==='home'?'dashboard':current.A);
+    window.PortalUI?.decorate();
+    if(!changed)load();
   }
-  function render() { if(!data)return;const p=current[role];if(p==='attendance')renderAttendance();if(p==='materials')renderMaterials();if(p==='tasks')renderTasks();if(p==='profile')renderProfile(); }
+  function render() { if(!data)return;const p=current[role];if(p==='dashboard'||p==='schedule')window.PortalUI?.render(panel(),p,data,role);if(p==='attendance')renderAttendance();if(p==='materials')renderMaterials();if(p==='tasks')renderTasks();if(p==='profile'){renderProfile();window.PortalUI?.profile(panel(),data,role);} }
   function renderAttendance() {
     const admin=role==='A';
     panel().innerHTML=`<p class="muted">${admin?'Koreksi status dan tulis alasan untuk setiap siswa. Sesi baru menyimpan daftar peserta saat dibuka.':'Riwayat kehadiranmu per pertemuan, termasuk catatan dari guru.'}</p><div class="lp-filters">${admin?`<label>Kelas<select id="lpAttClass"><option value="">Semua kelas</option>${options(data.classes.map(c=>[c.id,c.name]))}</select></label><label>Sesi<select id="lpAttSession"><option value="">Semua sesi</option>${options(data.sessions.map(s=>[s.id,s.title+' · '+date(s.dateMs)]))}</select></label>`:''}<label>Dari tanggal (WITA)<input type="date" id="lpAttFrom"></label><label>Sampai tanggal<input type="date" id="lpAttTo"></label><label>Status<select id="lpAttStatus"><option value="">Semua status</option>${options(Object.entries(labels))}</select></label>${admin?'<label>Cari nama / ID<input id="lpAttSearch" type="search"></label>':''}</div><div id="lpAttTotals"></div><div id="lpAttList" class="lp-list"></div>`;
@@ -175,5 +179,5 @@
     if($('lpTeacherForm'))$('lpTeacherForm').onsubmit=ev=>{ev.preventDefault();const f=ev.currentTarget;if(!confirm('Buat akun guru dengan akses pengelolaan admin?'))return;run(f.querySelector('button'),()=>api('createTeacher',formValues(f)),'Akun guru dibuat. Bagikan ID dan kata sandi secara pribadi.');};
   }
   document.querySelector('#loginForm').insertAdjacentHTML('afterbegin','<div id="teacherLoginFields" class="hidden"><label class="field" for="teacherLoginId">ID guru (opsional)</label><input id="teacherLoginId" type="text" maxlength="40" autocomplete="username" placeholder="Kosongkan untuk admin utama"></div>');
-  window.LearningUI={ mount, syncAdmin(page){if(page==='learning')document.querySelector('#adminView .admin-heading h1').textContent='Ruang pembelajaran';if($('lpShellA'))$('lpShellA').classList.toggle('hidden',page!=='learning');if(page!=='learning'){current.A='home';document.querySelectorAll('[data-lp-role="A"]').forEach(b=>b.classList.remove('active'));}}, loginRole(r){$('teacherLoginFields').classList.toggle('hidden',r!=='A');}, reset(){generation++;data=null;current={S:'home',A:'home'};mount.token='';if($('lpHomeSummary')){$('lpHomeSummary').replaceChildren();$('lpHomeSummary').hidden=true;}document.querySelectorAll('.lp-shell').forEach(n=>n.classList.add('hidden'));document.querySelectorAll('[id^=lpPanel]').forEach(n=>n.replaceChildren());} };
+  window.LearningUI={ mount, show, reload:load, syncAdmin(page){if(page==='learning')document.querySelector('#adminView .admin-heading h1').textContent='Ruang pembelajaran';if($('lpShellA'))$('lpShellA').classList.toggle('hidden',page!=='learning');if(page!=='learning'){current.A='home';document.querySelectorAll('[data-lp-role="A"]').forEach(b=>b.classList.remove('active'));}}, loginRole(r){$('teacherLoginFields').classList.toggle('hidden',r!=='A');}, reset(){window.PortalUI?.reset();generation++;data=null;current={S:'home',A:'home'};mount.token='';if($('lpHomeSummary')){$('lpHomeSummary').replaceChildren();$('lpHomeSummary').hidden=true;}document.querySelectorAll('.lp-shell').forEach(n=>n.classList.add('hidden'));document.querySelectorAll('[id^=lpPanel]').forEach(n=>n.replaceChildren());} };
 })();

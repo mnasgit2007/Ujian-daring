@@ -17,10 +17,18 @@ export const SHEETS = Object.freeze({
   TUGAS: 'TUGAS',
   PENGUMPULAN: 'PENGUMPULAN',
   PROFIL: 'PROFIL',
-  GURU: 'GURU'
+  GURU: 'GURU',
+  PESERTA_UJIAN: 'PESERTA_UJIAN',
+  JADWAL: 'JADWAL',
+  JADWAL_PENGECUALIAN: 'JADWAL_PENGECUALIAN',
+  FOTO_PROFIL: 'FOTO_PROFIL'
 });
 
 export const HEADERS = Object.freeze({
+  FOTO_PROFIL: ['Kunci', 'FotoJPEG', 'WaktuMs'],
+  PESERTA_UJIAN: ['UjianID', 'KelasJSON', 'SiswaJSON', 'Pencatat', 'WaktuMs'],
+  JADWAL: ['JadwalID', 'KelasID', 'GuruID', 'Mapel', 'Hari', 'JamMulai', 'JamSelesai', 'Ruang', 'BerlakuDari', 'BerlakuSampai', 'Status', 'Pencatat', 'WaktuMs'],
+  JADWAL_PENGECUALIAN: ['JadwalID', 'Tanggal', 'Catatan', 'Pencatat', 'WaktuMs'],
   SISWA: ['ID', 'Nama', 'Kelas', 'Kelompok', 'PinHash', 'Aktif', 'KelasID', 'QrToken'],
   UJIAN: ['UjianID', 'Judul', 'DurasiMenit', 'Mulai', 'Selesai', 'Status', 'TampilkanNilai'],
   SOAL: ['UjianID', 'SoalID', 'Pertanyaan', 'A', 'B', 'C', 'D', 'Kunci', 'Bobot', 'DriveFileId'],

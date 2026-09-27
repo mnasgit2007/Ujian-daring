@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import * as store from './store.js';
 import { norm, hash } from './auth.js';
 import { assignmentFiles, validateUploads, uploadConfigured } from './learning-files.js';
+import { optionalAcademicRows } from './academic.js';
 
 export const ATTENDANCE_STATUSES = ['HADIR','TERLAMBAT','IZIN','SAKIT','ALPA'];
 const NEW_SHEETS = ['ABSENSI_PESERTA','ABSENSI_DETAIL','MATERI','TUGAS','PENGUMPULAN','PROFIL','GURU'];
@@ -101,8 +102,11 @@ export function createLearningService(db = store, files = assignmentFiles) {
     await setup(); const identity = await principal(p);
     const [mat,task,sub,prof,att,classes,sessionRows] = await Promise.all([table('MATERI'),table('TUGAS'),table('PENGUMPULAN'),table('PROFIL'),attendance(),table('KELAS'),table('ABSENSI_SESI')]);
     const own = prof.filter(r=>r[0]===profileKey(p)).at(-1) || [];
+    const photos=await optionalAcademicRows(db,'FOTO_PROFIL');
+    const photo=photos?.slice(1).filter(r=>r[0]===profileKey(p)).at(-1)?.[1] || '';
     const allowed = r => p.role==='A' || (r[1]===norm(identity[6]) && r[6]==='TERBIT');
     return { profile:{ id:p.id||'ADMIN', role:p.role, name:own[1]||identity[1], officialName:identity[1], email:own[2]||'', phone:own[3]||'', bio:own[4]||'', subject:own[5]||'', className:p.role==='S'?identity[2]:'', group:p.role==='S'?identity[3]:'' },
+      photo, photoEnabled:!!photos,
       materials:materials(mat.filter(allowed)), tasks:tasks(task.filter(allowed)), submissions:submissions(sub.filter(r=>p.role==='A'||r[2]===p.id)),
       attendance:att.filter(r=>p.role==='A'||r.studentId===p.id),
       classes:classes.filter(r=>norm(r[9])!=='TIDAK' && (p.role==='A'||norm(r[0])===norm(identity[6]))).map(r=>({id:r[0],name:r[1]})),
@@ -146,6 +150,17 @@ export function createLearningService(db = store, files = assignmentFiles) {
     if((await table('GURU')).some(r=>r[0]===id))throw new Error('ID guru sudah digunakan.');
     await db.appendRows('GURU',[[id,name,hash('GURU:'+id+':'+password),'YA']]);return {ok:true};
   }
+  async function savePhoto(p,input) {
+    await setup();await principal(p);
+    if(!await optionalAcademicRows(db,'FOTO_PROFIL'))throw new Error('Jalankan setup-sheet.mjs untuk mengaktifkan foto profil.');
+    const photo=String(input.photo||'');
+    if(photo) {
+      if(!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(photo)||photo.length>32000)throw new Error('Foto harus JPEG, maksimal 24 KB.');
+      const bytes=Buffer.from(photo.split(',')[1],'base64');
+      if(!bytes.subarray(0,3).equals(Buffer.from([255,216,255])))throw new Error('Foto JPEG tidak valid.');
+    }
+    await db.appendRows('FOTO_PROFIL',[[profileKey(p),photo,db.nowMs()]]);return {ok:true};
+  }
   async function submit(p,input) {
     if(p.role!=='S')throw new Error('Hanya siswa dapat mengumpulkan tugas.');
     await setup();const student=await principal(p);
@@ -183,7 +198,7 @@ export function createLearningService(db = store, files = assignmentFiles) {
     if(!file)throw new Error('Berkas tidak ditemukan atau akses ditolak.');
     return files.get(file);
   }
-  return { dashboard, saveContent, markAttendance, saveProfile, createTeacher, submit, grade, download, async checkStorage(p){admin(p);await principal(p);return files.checkFolder();} };
+  return { dashboard, saveContent, markAttendance, saveProfile, savePhoto, createTeacher, submit, grade, download, async checkStorage(p){admin(p);await principal(p);return files.checkFolder();} };
 }
 
 export const learning = createLearningService();
